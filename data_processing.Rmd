@@ -1,24 +1,20 @@
 ---
 title: "[XSTSF] Data processing"
 author: Yibing Shi
-date: "Last updated: 2023-06-08"
+date: "Last updated: 2023-07-28"
 output: html_document
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
 library(readxl)
 library(dplyr)
 library(tidyverse)
-
-install.packages('packages/Rling_1.0.tar.gz', repos = NULL, type = 'source')
-library(Rling)
 ```
 
 
-## F0
-**Import data files **
+# F0
+## Import raw data and labels 
 ```{r import-data-f0, message=FALSE, warning=FALSE}
 # f0 data for mono-/di-/tri-syllables under citation (ct) or focus conditions
 f0_mono <- read_excel('raw_data/mono_f0_all_2.xlsx')
@@ -33,10 +29,10 @@ label_tri_ct <- read_excel('raw_data/labels.xlsx', sheet = 'citation.tri')
 label_focus <- read_excel('raw_data/labels.xlsx', sheet = 'focus')
 ```
 
-<br>
-**Data cleaning**
+## Data cleaning  
 ```{r data-cleaning, message=FALSE, warning=FALSE}
-# monosyllables labels
+## Labels 
+# monosyllables
 label_mono <- label_mono %>%
   pivot_longer(
     cols = S1:S8,
@@ -47,8 +43,7 @@ label_mono <- label_mono %>%
          tone = ifelse(tone == 'HM', 'HL',
                        ifelse(tone == 'LM', 'LH', tone))) 
 
-
-# disyllables labels
+# disyllables
 label_di_ct <- label_di_ct %>%
   left_join(label_mono[, -1], by = c('mono_no_1' = 'mono_no')) %>%
   rename(mono_tone_1 = tone) %>%
@@ -56,8 +51,7 @@ label_di_ct <- label_di_ct %>%
   rename(mono_tone_2 = tone) %>%
   mutate(citation_tone = paste(mono_tone_1, mono_tone_2, sep = '')) 
 
-
-# trisyllables labels
+# trisyllables
 label_tri_ct <-label_tri_ct %>%
   pivot_wider(names_from = syllable_no, values_from = mono_no) %>%
   rename(mono_no_1 = '1', mono_no_2 = '2', mono_no_3 = '3') %>%
@@ -67,10 +61,13 @@ label_tri_ct <-label_tri_ct %>%
   rename(mono_tone_2 = tone) %>%
   left_join(label_mono[, -1], by = c('mono_no_3' = 'mono_no', 'speaker')) %>%
   rename(mono_tone_3 = tone) %>%
-  mutate(citation_tone = paste(mono_tone_1, mono_tone_2, mono_tone_3, sep = '')) 
+  mutate(citation_tone = paste(mono_tone_1, mono_tone_2, mono_tone_3, sep = ''),) %>% 
+  select(-syntax) %>%
+  rename(syntax = syntax_first_tone)
 
 
-# monosyllables f0
+## f0 data
+# monosyllables
 # 8 speakers * 54 tokens * 10 normalised time points = 4320
 f0_mono <- f0_mono %>%
   left_join(distinct(label_mono[, c(1, 2)]), by = 'mono_no') %>%
@@ -84,8 +81,7 @@ f0_mono <- f0_mono %>%
          focus_condition = 'citation') %>%
   rename(citation_no = token_no)
 
-
-# disyllables citation f0
+# disyllables citation
 # 8 speakers * 52 tokens * 10 normalised time points * 2 syllables = 8320  
 f0_di_ct <- f0_di_ct %>%
   rename(token_no = di_no,
@@ -97,8 +93,7 @@ f0_di_ct <- f0_di_ct %>%
          focus_condition = 'citation') %>%
   rename(citation_no = token_no)
 
-
-# trisyllables citation f0
+# trisyllables citation
 # 8 speakers * 44 tokens * 10 normalised time points * 3 syllables = 10560 
 f0_tri_ct <- f0_tri_ct %>%
   rename(token_no = tri.no,
@@ -112,8 +107,7 @@ f0_tri_ct <- f0_tri_ct %>%
          focus_condition = 'citation') %>%
   rename(citation_no = token_no)
 
-
-# focus f0
+# focus
 # 8 speakers * (115 disyllables * 2 + 219 trisyllables * 3) * 10 normalised time points = 70960
 # see 'raw_data/labels.xlsx/check' for details
 f0_focus <- f0_focus %>%
@@ -138,66 +132,15 @@ f0_all <- rbind(f0_mono, f0_di_ct, f0_tri_ct, f0_di_focus, f0_tri_focus)
 
 f0_all <- f0_all %>%
   group_by(speaker) %>%
-  mutate(norm_f0 = normalize(log(f0), method = 'z-scores')) %>%
+  mutate(norm_f0 = scale(log(f0))) %>%
   ungroup() %>%
   mutate(ind_no = ifelse(focus_condition == 'citation', paste(speaker, citation_no, sep = '_'),
                          paste(speaker, citation_no, focus_condition, sep = '_')))
-
-# alternative scaling function: 
-# f0_all %>% group_by(speaker) %>% mutate(scale(log(f0)))
 ```
 
-<br>
-**Data visualisation preparation**
-```{r data-visualisation-prep}
-f0_draw_ind <- function(x, y, z) {
-  condition = unique(x$focus_condition)[1]
-  x %>%
-  filter(eval(as.name(z)) == y) %>%
-  ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=ind_no, linetype=ind_no))+ 
-  geom_line()+
-  labs(title = paste(y, condition, 'individuals', sep = '_'))+
-  ylim(-2.5, 2.5)
-}
 
-f0_draw_group <- function(x, y, z) {
-  condition = unique(x$focus_condition)[1]
-  x %>%
-  filter(citation_tone == y) %>%
-  ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color = ind_no))+ 
-  geom_line()+
-  facet_wrap(as.formula(paste("~", z)))+
-  labs(title = paste(y, condition, sep = '_'))
-}
-
-
-se<- function(x) sd(x)/sqrt(length(x))
-
-f0_sandhi_mean <- function(x) {
-  x %>%
-  group_by(citation_tone, sandhi_tone_final, time) %>%
-  mutate(mean_f0 = mean(norm_f0), se = se(norm_f0)) %>%
-  ungroup() %>%
-  # drop out contours that only occur once & abnormal values
-  filter(is.na(se) == FALSE) %>%
-  # add count label
-  group_by(citation_tone, sandhi_tone_final) %>%
-  mutate(count = n()) %>%
-  ungroup() %>%
-  mutate(count_text = ifelse(time == 20, paste('n=', as.character(count/20), sep = ''), NA))
-}
-
-f0_draw_sandhi_avg <- function(x, y) {
-  x %>%
-  filter(citation_tone == y) %>%
-  ggplot(aes(x = factor(time), y = mean_f0, color = sandhi_tone_final, group = interaction(syllable_no, sandhi_tone_final))) +
-  geom_errorbar(aes(ymin=mean_f0-se, ymax=mean_f0+se, width=.1))+
-  geom_line()+
-  geom_point()+
-  ylim(-2.5, 2.5)+
-  labs(title = y)+
-  geom_text(aes(label = count_text), vjust = 0, nudge_y = 0.3)
-}
+# Saving
+```{r saving}
+save.image('XSTSF_production.RData')
 ```
-
 
