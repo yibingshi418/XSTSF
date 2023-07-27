@@ -1,0 +1,71 @@
+---
+title: "[XSTSF] Tone sandhi patterns for trisyllabic tokens"
+output: html_document
+author: Yibing Shi
+date: "Last updated: 2023-07-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(ggpubr)
+library(plotly)
+library(writexl)
+library(readxl)
+```
+
+
+## Citation sandhi  
+
+## Data frame construction  
+```{r data-construction}
+# Data structure: 
+  # 8 speakers * 44 tokens *  10 normalised time points * 3 syllables = 10,560
+  # HH-X:   [1+2MH shang]   小青椒, 小苦瓜, 小樱桃, 小水牛, 小黄瓜, 小杨梅
+  #         [1+2MH ping]    新书包, 新手机, 新书房, 新手链, 新皮袄, 新皮鞋
+  #         [1+2VO shang]   采樱花, 采樱桃, 采梅花, 采杨梅
+  #         [2+1VL]         修车工, 开锁人, 修门工, 开门人
+  #         [2+1LL shang]   苦瓜籽, 苦瓜皮, 草莓籽, 水牛毛
+  #         [2+1LL ping]    青椒籽, 青椒皮, 樱桃籽, 樱桃皮
+  # LHL-X:  [1+2MH]         老青椒, 老樱桃, 老黄瓜, 老杨梅 
+  # ping    [1+2VO]         卖青椒, 卖樱桃, 卖黄瓜, 卖杨梅
+  #         [2+1VL]         造纸厂, 卖花人, 造船厂, 卖茶人
+  #         [2+1LL]         黄瓜籽, 黄瓜皮, 杨梅籽, 杨桃皮
+
+
+
+# all trisyllabic tokens
+f0_tri_ct <- f0_all %>% filter(focus_condition == 'citation' & diortri == 'tri')
+```
+
+
+## Data visualisation  
+```{r data-vis-all}
+# check syntax categories
+for (var in unique(f0_tri_ct$syntax)) {
+  print(var)
+}
+
+# visualisation of individual contours by token under each syntax category
+for (var in unique(f0_tri_ct$syntax)) {
+  data_frame <- f0_tri_ct %>% filter(syntax == var)
+  list <- as.list(unique(data_frame$citation_no))
+  plotList <- lapply(list, function(ind){
+  x <- data_frame %>%
+    filter(citation_no == ind) %>%
+    ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=ind_no, linetype=ind_no))+ 
+    geom_line()+
+    ylim(-2.5, 2.5)
+  ggsave(filename = paste0('plots/', var, '_no', ind, '_ct.jpg'), width = 6, height = 4)
+  x
+})
+  var2 <- gsub('+', '', var, fixed = TRUE)
+  assign(paste0('ct_', var2), ggarrange(plotlist = plotList))
+}
+```
+
+
