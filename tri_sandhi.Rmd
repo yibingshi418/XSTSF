@@ -12,6 +12,8 @@ library(dplyr)
 library(tidyverse)
 library(kableExtra) 
 library(ggplot2)
+
+library(gridExtra) 
 library(ggpubr)
 library(plotly)
 library(writexl)
@@ -19,53 +21,96 @@ library(readxl)
 ```
 
 
-## Citation sandhi  
-
-## Data frame construction  
+## Data construction     
 ```{r data-construction}
-# Data structure: 
-  # 8 speakers * 44 tokens *  10 normalised time points * 3 syllables = 10,560
-  # HH-X:   [1+2MH shang]   小青椒, 小苦瓜, 小樱桃, 小水牛, 小黄瓜, 小杨梅
-  #         [1+2MH ping]    新书包, 新手机, 新书房, 新手链, 新皮袄, 新皮鞋
-  #         [1+2VO shang]   采樱花, 采樱桃, 采梅花, 采杨梅
-  #         [2+1VL]         修车工, 开锁人, 修门工, 开门人
-  #         [2+1LL shang]   苦瓜籽, 苦瓜皮, 草莓籽, 水牛毛
-  #         [2+1LL ping]    青椒籽, 青椒皮, 樱桃籽, 樱桃皮
-  # LHL-X:  [1+2MH]         老青椒, 老樱桃, 老黄瓜, 老杨梅 
-  # ping    [1+2VO]         卖青椒, 卖樱桃, 卖黄瓜, 卖杨梅
-  #         [2+1VL]         造纸厂, 卖花人, 造船厂, 卖茶人
-  #         [2+1LL]         黄瓜籽, 黄瓜皮, 杨梅籽, 杨桃皮
+load('XSTSF_production.RData') # load pre-processed data
+f0_tri <- f0_all_pre %>% filter(diortri == 'tri')
 
-
-
-# all trisyllabic tokens
-f0_tri_ct <- f0_all %>% filter(focus_condition == 'citation' & diortri == 'tri')
+kable(f0_tri) %>%
+  kable_styling("striped", full_width = F) %>%
+  scroll_box(width = "100%", height = "300px")
 ```
 
+<br>
 
 ## Data visualisation  
-```{r data-vis-all}
-# check syntax categories
-for (var in unique(f0_tri_ct$syntax)) {
-  print(var)
-}
-
-# visualisation of individual contours by token under each syntax category
-for (var in unique(f0_tri_ct$syntax)) {
-  data_frame <- f0_tri_ct %>% filter(syntax == var)
-  list <- as.list(unique(data_frame$citation_no))
-  plotList <- lapply(list, function(ind){
-  x <- data_frame %>%
-    filter(citation_no == ind) %>%
-    ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=ind_no, linetype=ind_no))+ 
-    geom_line()+
-    ylim(-2.5, 2.5)
-  ggsave(filename = paste0('plots/', var, '_no', ind, '_ct.jpg'), width = 6, height = 4)
-  x
-})
-  var2 <- gsub('+', '', var, fixed = TRUE)
-  assign(paste0('ct_', var2), ggarrange(plotlist = plotList))
+A function to draw plots and save them to lists
+```{r function}
+draw_by <- function(dataframe, x, y){
+            no.list <- as.list(unique(get(x, dataframe)))
+            if (missing(y)) {
+              p.list <- lapply(no.list, function(i){
+                      p <- dataframe %>%
+                        filter(eval(as.name(x)) == i) %>%
+                        ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=ind_no, linetype=ind_no))+
+                        geom_line()+
+                        ylim(-2.5, 2.5)+
+                        labs(title = paste(x, i, sep = '_'))
+                      p
+                      })
+              p.list
+            } else {
+              p.list <- lapply(no.list, function(i){
+                      p <- dataframe %>%
+                        filter(eval(as.name(x)) == i) %>%
+                        ggplot(aes(x=factor(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=ind_no, linetype=ind_no))+
+                        geom_line()+
+                        ylim(-2.5, 2.5)+
+                        facet_wrap(as.formula(paste("~", y)))+
+                        labs(title = paste(x, i, sep = '_'))
+                      p
+                      })
+              p.list
+            }
 }
 ```
+
+
+### Citation sandhi     
+Display the unique tokens under each syntax+starting tone category.
+```{r data-ct}
+f0_tri_ct <- f0_tri %>% filter(focus_condition == 'citation')
+f0_tri_ct_labels <- unique(filter(f0_tri, focus_condition == 'citation')[c('syntax', 'citation_no', 'token')]) %>% arrange(syntax, citation_no)
+
+kable(f0_tri_ct_labels) %>%
+  kable_styling("striped", full_width = F) %>%
+  scroll_box(width = "100%", height = "300px")
+```
+
+Plotting & saving f0 contours for each token, grouped by syntax & starting tone categories
+```{r plot-ind-all, out.width='50%', warning=FALSE}
+for (var in unique(f0_tri_ct$syntax)) {
+  dataframe <- f0_tri_ct %>% filter(syntax == var)
+  var2 <- gsub('+', '', var, fixed = TRUE)
+  assign(paste0('ct_', var2), draw_by(dataframe, 'citation_no'))
+}
+
+# Example: 12MH_RF
+for (var in ct_12MH_RF) {
+  print(ggplotly(var))
+}
+```
+
+
+### Sandhi contours across focus conditions  
+```{r data-focus-all}
+# select tokens that appear in all the focus conditions
+f0_tri_all.con <- f0_tri %>% add_count(token) %>% filter(n == 8*30*6) 
+f0_tri_all.con$focus_condition <- factor(f0_tri_all.con$focus_condition, levels = c('citation', 'tri', 'di_3', '1', '2', '3'))
+f0_tri_all.con <- f0_tri_all.con %>% arrange(citation_no, focus_condition)
+
+# plotting & saving
+for (var in unique(f0_tri_all.con$syntax)) {
+  dataframe <- f0_tri_all.con %>% filter(syntax == var)
+  var2 <- gsub('+', '', var, fixed = TRUE)
+  assign(paste0('all_con_', var2), draw_by(dataframe, 'citation_no', 'focus_condition'))
+}
+
+# Example: 21LL_RF
+for (var in all_con_21LL_RF) {
+  print(ggplotly(var))
+}
+```
+
 
 
