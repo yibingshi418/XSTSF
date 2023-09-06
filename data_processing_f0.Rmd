@@ -59,9 +59,10 @@ recursive_left_join <- function(df) {
     }
     
     merged_df <- left_join(merged_df, label_mono_ct[, -c(1, 2)], by = by) %>% 
-      mutate(citation_tone = ifelse(i == 1, tone, paste(citation_tone, tone, sep = '_'))) %>% 
       rename_with(~paste0('mono_tone_', i), tone)
   }
+  
+  merged_df <- merged_df %>% unite(citation_tone, matches('^mono_tone_'), remove=FALSE)
   
   return(merged_df)
 }
@@ -83,8 +84,7 @@ data_merge <- function(df) {
   df_merge <- get(paste('label', merge_con, 'ct', sep = '_'))
   
   # select relevant columns
-  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1'),
-                             colnames(df_merge))
+  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1'), colnames(df_merge))
   
   # prepare time values
   time_values <- list(mono = rep(1:10, times = nrow(df) / 10),
@@ -104,8 +104,8 @@ Clean the raw f0 data.
 ```{r clean-data-f0}
 # citation data
 f0_mono_pre <- data_merge(f0_mono_raw) 
-f0_di_ct_pre <- data_merge(f0_di_ct_raw)
-f0_tri_ct_pre <- data_merge(f0_tri_ct_raw)
+f0_di_ct_pre <- data_merge(f0_di_ct_raw) %>% mutate(diortri = 'di')
+f0_tri_ct_pre <- data_merge(f0_tri_ct_raw) %>% mutate(diortri = 'tri')
 
 
 # focus data
@@ -136,7 +136,8 @@ f0_all_pre <-
   mutate(norm_f0 = scale(log(f0))) %>%
   ungroup() %>% 
   # other final data cleaning 
-  mutate(ind_no = ifelse(focus_condition == 'citation', paste(speaker, citation_no, sep = '_'),
+  mutate(focus_condition = coalesce(focus_condition, 'citation'),
+         ind_no = ifelse(focus_condition == 'citation', paste(speaker, citation_no, sep = '_'),
                          paste(speaker, citation_no, focus_condition, sep = '_')),
          syntax_iniTone = ifelse(!is.na(syntax) & !is.na(mono_tone_1), 
                                  paste(syntax, mono_tone_1, sep = '_'), NA),
