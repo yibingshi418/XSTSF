@@ -1,7 +1,7 @@
 ---
 title: "[XSTSF] Data processing"
 author: Yibing Shi
-date: "Last updated: 2023-08-30"
+date: "Last updated: 2023-09-06"
 output: html_document
 ---
 ```{r setup, include=FALSE}
@@ -12,6 +12,7 @@ library(dplyr)
 library(plyr)
 library(tidyverse)
 library(rlang)
+library(openxlsx)
 ```
 
 
@@ -31,9 +32,9 @@ f0_focus_raw <- read_excel('raw_data/f0_focus.xlsx')
 ```
 
 ## Data cleaning  
-Cleaning data frames of labels.
+Clean labels
 ```{r clean-label-f0, message=FALSE, warning=FALSE}
-# monosyllables labels
+# monosyllabic labels
 label_mono_ct <- label_mono_ct %>%
   pivot_longer(cols = starts_with('S'),
                names_to = 'speaker',
@@ -44,6 +45,7 @@ label_mono_ct <- label_mono_ct %>%
 
 
 # a function to recursively merge monosyllables labels with target data frame
+# This is to add monosyllabic citation tones to the target data frame
 recursive_left_join <- function(df) {
   merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
   join_count <- switch(merge_con, mono = 1, di = 2, tri = 3)
@@ -71,12 +73,12 @@ recursive_left_join <- function(df) {
 label_di_ct <- recursive_left_join(label_di_ct)
 label_tri_ct <- label_tri_ct %>%
   pivot_wider(names_from = syllable_no, values_from = mono_no) %>%
-  rename(mono_no_1 = '1', mono_no_2 = '2', mono_no_3 = '3')
+  dplyr::rename(mono_no_1 = '1', mono_no_2 = '2', mono_no_3 = '3')
 label_tri_ct <- recursive_left_join(label_tri_ct)
 ```
 
 
-A function to merge data frames in order to get necessary labels and time values.
+A function to merge labels and raw data
 ```{r clean-data-f0-function}
 data_merge <- function(df) {
   # get the df for merging according to the name of the input df
@@ -84,7 +86,7 @@ data_merge <- function(df) {
   df_merge <- get(paste('label', merge_con, 'ct', sep = '_'))
   
   # select relevant columns
-  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1'), colnames(df_merge))
+  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1', 'mono_tone_2'), colnames(df_merge))
   
   # prepare time values
   time_values <- list(mono = rep(1:10, times = nrow(df) / 10),
@@ -94,13 +96,13 @@ data_merge <- function(df) {
   # merge data frames
   merged_df <- left_join(df, select(df_merge, all_of(selected_cols)), by = c('token_no', 'speaker')) %>% 
     mutate(time = time_values[[merge_con]]) %>% 
-    rename(citation_no = token_no)
+    dplyr::rename(citation_no = token_no)
   
   return(merged_df)
 }
 ```
 
-Clean the raw f0 data. 
+Clean raw data
 ```{r clean-data-f0}
 # citation data
 f0_mono_pre <- data_merge(f0_mono_raw) 
@@ -126,7 +128,7 @@ f0_tri_focus_pre <- data_merge(f0_tri_focus_pre)
 ```{r data-cleaning-f0, message=FALSE, warning=FALSE}
 require(plyr)
 
-desired_order <- c('speaker', 'token', 'diortri', 'syllable_no', 'focus_condition', 'focus_no', 'citation_no', 'ind_no', 'citation_tone', 'syntax', 'syntax_iniTone', 'sandhi_tone', 'time', 'f0', 'norm_f0')
+desired_order <- c('speaker', 'token', 'diortri', 'syllable_no', 'focus_condition', 'focus_no', 'citation_no', 'ind_no', 'mono_tone_1', 'mono_tone_2', 'citation_tone', 'syntax', 'syntax_iniTone', 'sandhi_tone', 'time', 'f0', 'norm_f0')
 
 f0_all_pre <- 
   # combine all f0 data frames
@@ -136,20 +138,29 @@ f0_all_pre <-
   mutate(norm_f0 = scale(log(f0))) %>%
   ungroup() %>% 
   # other final data cleaning 
-  mutate(focus_condition = coalesce(focus_condition, 'citation'),
-         ind_no = ifelse(focus_condition == 'citation', paste(speaker, citation_no, sep = '_'),
+  mutate(focus_condition = ifelse(is.na(focus_condition) == TRUE, 'ct', focus_condition),
+         ind_no = ifelse(focus_condition == 'citation', 
+                         paste(speaker, citation_no, sep = '_'),
                          paste(speaker, citation_no, focus_condition, sep = '_')),
-         syntax_iniTone = ifelse(!is.na(syntax) & !is.na(mono_tone_1), 
-                                 paste(syntax, mono_tone_1, sep = '_'), NA),
+         syntax_iniTone = case_when(
+           str_sub(mono_tone_1, -1) == 's' ~ paste0(syntax, '_HTs'),
+           str_sub(mono_tone_1, -1) == 'p' ~ paste0(syntax, '_HTp'),
+           is.na(mono_tone_1) ~ NA,
+           .default = paste0(syntax, '_LT')
+         ),
          time = as.factor(time),
          speaker = as.factor(speaker),
          citation_no = as.factor(citation_no),
          ind_no = as.factor(ind_no)) %>% 
-  select(-mono_tone_1) %>% 
   # re-order columns
   select(desired_order)
 ```
 
+
+## Export dataframe for future labeling
+```{r}
+write.xlsx(f0_all_pre[f0_all_pre$time == 1, ][, c('token', 'ind_no', 'focus_condition', 'diortri', 'sandhi_tone', 'syntax_iniTone')], 'sandhi_label.xlsx')
+```
 
 ## Saving
 ```{r saving}
