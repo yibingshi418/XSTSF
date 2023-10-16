@@ -1,7 +1,7 @@
 ---
 title: "Disyllabic Lexical Compound citation (broad focus) sandhi: initial inspection"
 output: html_document
-date: "Last updated: 2023-09-21"
+date: "Last updated: 2023-10-15"
 ---
 
 ```{r setup, include=FALSE}
@@ -23,7 +23,7 @@ library(readxl)
 ```{r data-construction}
 load("XSTSF_production.RData")
 f0_di <- f0_all_pre %>% filter(diortri == 'di') 
-f0_di_ct <- f0_di %>% filter(focus_condition == 'citation')
+f0_di_ct <- f0_di %>% filter(focus_condition == 'ct')
 ```
 
 **A function to plot & save f0 contours**
@@ -32,7 +32,7 @@ draw_by <- function(dataframe, x, y){
   p <- dataframe %>% 
       ggplot(aes(x=time, y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
       geom_line()+
-      ylim(-2.5, 2.5)+
+      ylim(-3, 3)+
     {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), ncol = 2, labeller = label_both)}
         else {facet_grid(as.formula(paste(y, "~", x)), labeller = label_value)}}+
       theme_bw()+
@@ -67,15 +67,13 @@ for (var in unique(f0_di_ct$syntax_iniTone)) {
 unique(f0_di_ct[f0_di_ct$syntax_iniTone == 'L_HTs', ]$token)
 ```
 
-**grouped by citation tone combinations**
-```{r di-ct-HTs-byCT, out.width='100%', out.height='1200px'}
-ggplotly(ct_L_HTs_byCT, tooltip = c('text', 'x')) 
+```{r di-ct-HTs, out.width='100%', out.height='800px'}
+p1 <- ggplotly(ct_L_HTs_byCT, tooltip = c('text', 'x')) 
+p2 <- ggplotly(ct_L_HTs_byS, tooltip = c('text', 'x')) 
+
+subplot(p1, p2) %>% layout(legend = list(orientation = "h", x = 0.4, y = -0.1))
 ```
 
-**grouped by speakers**
-```{r di-ct-HTs-byS, out.width='100%', out.height='1200px'}
-ggplotly(ct_L_HTs_byS, tooltip = c('text', 'x'))
-```
 
 <br>
 
@@ -84,24 +82,20 @@ ggplotly(ct_L_HTs_byS, tooltip = c('text', 'x'))
 unique(f0_di_ct[f0_di_ct$syntax_iniTone == 'L_HTp', ]$token)
 ```
 
-**grouped by citation tone combinations**
-```{r di-ct-HTp-byCT, out.width='100%', out.height='1200px', eval=FALSE}
-ggplotly(ct_L_HTp_byCT, tooltip = c('text', 'x'))
-```
-**grouped by speakers**
-```{r di-ct-HTp-byS, out.width='100%', out.height='1200px'}
-ggplotly(ct_L_HTp_byS, tooltip = c('text', 'x'))
+```{r di-ct-HTp, out.width='100%', out.height='800px'}
+p1 <- ggplotly(ct_L_HTp_byCT, tooltip = c('text', 'x'))
+p2 <- ggplotly(ct_L_HTp_byS, tooltip = c('text', 'x'))
+
+subplot(p1, p2) %>% layout(legend = list(orientation = "h", x = 0.4, y = -0.1))
 ```
 
 <br>
 
 ### LT (LHL/LH)-initial Lexical Compounds: 
-**grouped by citation tone combinations**
-```{r di-ct-LT-byCT, out.width='100%', out.height='800px'}
-ggplotly(ct_L_LT_byCT, tooltip = c('text', 'x'))
-```
-**grouped by speakers**
-```{r di-ct-LT-byS, out.width='100%', out.height='1200px'}
-ggplotly(ct_L_LT_byS, tooltip = c('text', 'x'))
+```{r di-ct-LT, out.width='100%', out.height='800px'}
+p1 <- ggplotly(ct_L_LT_byCT, tooltip = c('text', 'x'))
+p2 <- ggplotly(ct_L_LT_byS, tooltip = c('text', 'x'))
+
+subplot(p1, p2) %>% layout(legend = list(orientation = "h", x = 0.4, y = -0.1))
 ```
 
