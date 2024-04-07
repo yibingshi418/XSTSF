@@ -1,0 +1,115 @@
+---
+title: "Analysis of disyllabic citation tone sandhi patterns in Xiangshan"
+author: Yibing Shi
+date: "Last updated: 2024-04-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(ggpubr)
+library(viridis)
+library(cowplot)
+library(plotly)
+library(gridExtra) 
+library(ggpubr)
+library(ggthemes)
+library(writexl)
+library(readxl)
+library(kml)
+```
+
+# Data preparations  
+**Construct data frame ** 
+```{r data-construction}
+source('functions.R')
+load("XSTSF_production.RData")
+
+# add manual sandhi labels
+label_sandhi <- read.csv('raw_data/sandhi_label.csv', 
+                         na.strings = '') 
+f0_all_pre_label <- f0_all_pre %>% 
+  select(!sandhi_tone) %>% 
+  left_join(label_sandhi[, c('ind_no', 'sandhi_tone', 'sandhi_tone_var', 'diortri')], 
+            by = c('diortri', 'ind_no')) %>% 
+  mutate(sandhi_tone_var = case_when(is.na(sandhi_tone_var) == TRUE ~ sandhi_tone,
+                                     .default = sandhi_tone_var)) %>% 
+  rename(normtime = time)
+
+# get disyllabic citation data 
+f0_di <- f0_all_pre_label %>% filter(diortri == 'di') 
+f0_di_ct <- f0_di %>% filter(focus_condition == 'ct') %>% 
+  # re-normalisation
+  group_by(speaker) %>%
+    mutate(f0ref = mean(f0, na.rm = T),
+           norm_f0 = scale(log(f0))) %>% 
+    ungroup()
+
+# get H- & L-register initial di citation data
+f0_di_ct_h <- f0_di_ct %>% filter(grepl('^H', mono_tone_1)) 
+f0_di_ct_l <- f0_di_ct %>% filter(grepl('^[LR]', mono_tone_1)) 
+```
+
+
+# Initial data inspection
+
+## yinping-initial LC & MH
+```{r out.height='800px'}
+f0_di_lcmh_hp <- f0_di_ct_h %>% filter(grepl("^[LM].*p$", syntax_iniTone)) 
+ggplotly(draw_by(f0_di_lcmh_hp, 'speaker'), tooltip = c('text', 'x'))
+```
+
+## yinshang-initial LC & MH
+```{r out.height='800px'}
+f0_di_lcmh_hs <- f0_di_ct_h %>% filter(grepl("^[LM].*s$", syntax_iniTone)) 
+ggplotly(draw_by(f0_di_lcmh_hs, 'speaker'), tooltip = c('text', 'x'))
+```
+
+## yangping-initial LC & MH
+```{r}
+f0_di_lcmh_lp <-f0_di_ct_l %>% filter(grepl("^[LM].*p$", syntax_iniTone)) 
+ggplotly(draw_by(f0_di_lcmh_lp, 'speaker'), tooltip = c('text', 'x'))
+```
+
+## yangshang-initial LC & MH
+```{r}
+f0_di_lcmh_ls <-f0_di_ct_l %>% filter(grepl("^[LM].*s$", syntax_iniTone)) 
+ggplotly(draw_by(f0_di_lcmh_ls, 'speaker'), tooltip = c('text', 'x'))
+```
+
+# Perceptual analysis 
+
+## H-register-initial LC & MH
+```{r}
+f0_di_lcmh <- rbind(f0_di_lcmh_hp, f0_di_lcmh_hs) %>% 
+  mutate(sandhi_tone = ifelse(sandhi_tone == 'HLLM', 'HMML', sandhi_tone),
+         propdur = as.integer(normtime)/20) %>% 
+  unite('groupvar', ind_no, syllable_no, sep = '_', remove = FALSE) %>% 
+  filter(is.na(sandhi_tone) == FALSE)
+  
+unique(f0_di_lcmh$sandhi_tone) # check the labels
+
+p_cluster(f0_di_lcmh, sandhi_tone)
+```
+
+
+
+# k-means clustering analysis
+try doing k-means for the whole disyllabic citation dataset
+```{r}
+f0_di_lcmh <- f0_di_ct %>% filter(grepl("^[LM]", syntax_iniTone)) %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(normtime, norm_f0)
+
+f0_di_lcmh_cluster <- k_means(f0_di_lcmh)
+plot(f0_di_lcmh_cluster, 7, parTraj=parTRAJ(col="clusters"))
+```
+
+
+
+

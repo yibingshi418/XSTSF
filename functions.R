@@ -85,8 +85,8 @@ get_df <- function(df, x, y){
 # run k-means analysis
 k_means <- function(df){
   # set up parameters for clustering
-  start <- which(names(df)=="1")
-  end <- which(names(df)=="20")
+  start <- which(names(df)==1)
+  end <- which(names(df)== 20)
   
   # create object for clustering
   group_cluster_model <- cld(df, idAll=df$ind_no, timeInData=start:end, time=c(start:end))
