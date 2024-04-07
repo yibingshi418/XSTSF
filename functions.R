@@ -1,4 +1,54 @@
-# draw individual contours for initial inspection
+######### Data processing #########
+
+# a function to recursively merge monosyllables labels with target data frame
+# This is to add monosyllabic citation tones to the target data frame
+recursive_left_join <- function(df) {
+  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
+  join_count <- switch(merge_con, mono = 1, di = 2, tri = 3)
+  merged_df <- df
+  
+  for (i in 1:join_count) {
+    by_con <-  paste0('mono_no_', as.character(i))
+    
+    by <- if (i == 1) {
+      join_by({{ by_con }} == token_no)
+    } else {
+      join_by(speaker, {{ by_con }} == token_no)
+    }
+    
+    merged_df <- left_join(merged_df, label_mono_ct[, -c(1, 2)], by = by) %>% 
+      rename_with(~paste0('mono_tone_', i), tone)
+  }
+  
+  merged_df <- merged_df %>% unite(citation_tone, matches('^mono_tone_'), remove=FALSE)
+  
+  return(merged_df)
+}
+
+# A function to merge labels and raw data
+data_merge <- function(df) {
+  # get the df for merging according to the name of the input df
+  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
+  df_merge <- get(paste('label', merge_con, 'ct', sep = '_'))
+  
+  # select relevant columns
+  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1', 'mono_tone_2', 'mono_tone_3'), colnames(df_merge))
+  
+  # prepare time values
+  time_values <- list(mono = rep(1:10, times = nrow(df) / 10),
+                      di = rep(1:20, times = nrow(df) / 20),
+                      tri = rep(1:30, times = nrow(df) / 30))
+  
+  # merge data frames
+  merged_df <- left_join(df, select(df_merge, all_of(selected_cols)), by = c('token_no', 'speaker')) %>% 
+    mutate(time = time_values[[merge_con]]) %>% 
+    dplyr::rename(citation_no = token_no)
+  
+  return(merged_df)
+}
+
+
+######### Initial inspection #########
 draw_by <- function(dataframe, x, y){
   p <- dataframe %>% 
     ggplot(aes(x=normtime, y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
@@ -12,6 +62,8 @@ draw_by <- function(dataframe, x, y){
   p
 }
 
+
+######### Cluster analysis #########
 
 # get desired dataset for k-means clustering
 get_df <- function(df, x, y){
@@ -118,7 +170,8 @@ compare_cluster <- function(df, x){
 }
 
 
-# distribution visualisation
+
+######### Distribution analysis #########
 distri_vis <- function(df, x, y){
   df1 <- df %>% filter(normtime == 1) %>% 
     count({{x}}, {{y}})

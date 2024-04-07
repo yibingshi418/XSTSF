@@ -44,33 +44,7 @@ label_mono_ct <- label_mono_ct %>%
                values_to = 'tone') %>%
   mutate(token_no = as.numeric(token_no),
          tone = ifelse(tone == 'HM', 'HL', ifelse(tone == 'LM', 'LH', tone)))%>% 
-  mutate(tone = ifelse(!is.na(tone_MC), paste0(tone, tone_MC), tone))
-
-
-# a function to recursively merge monosyllables labels with target data frame
-# This is to add monosyllabic citation tones to the target data frame
-recursive_left_join <- function(df) {
-  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
-  join_count <- switch(merge_con, mono = 1, di = 2, tri = 3)
-  merged_df <- df
-  
-  for (i in 1:join_count) {
-    by_con <-  paste0('mono_no_', as.character(i))
-    
-    by <- if (i == 1) {
-      join_by({{ by_con }} == token_no)
-    } else {
-      join_by(speaker, {{ by_con }} == token_no)
-    }
-    
-    merged_df <- left_join(merged_df, label_mono_ct[, -c(1, 2)], by = by) %>% 
-      rename_with(~paste0('mono_tone_', i), tone)
-  }
-  
-  merged_df <- merged_df %>% unite(citation_tone, matches('^mono_tone_'), remove=FALSE)
-  
-  return(merged_df)
-}
+  mutate(tone = paste0(tone, tone_MC))
 
 # di- & tri-syllables labels
 label_di_ct <- recursive_left_join(label_di_ct)
@@ -81,30 +55,6 @@ label_tri_ct <- recursive_left_join(label_tri_ct)
 ```
 
 
-A function to merge labels and raw data
-```{r clean-data-f0-function}
-data_merge <- function(df) {
-  # get the df for merging according to the name of the input df
-  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
-  df_merge <- get(paste('label', merge_con, 'ct', sep = '_'))
-  
-  # select relevant columns
-  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'tone', 'mono_tone_1', 'mono_tone_2', 'mono_tone_3'), colnames(df_merge))
-  
-  # prepare time values
-  time_values <- list(mono = rep(1:10, times = nrow(df) / 10),
-                      di = rep(1:20, times = nrow(df) / 20),
-                      tri = rep(1:30, times = nrow(df) / 30))
-  
-  # merge data frames
-  merged_df <- left_join(df, select(df_merge, all_of(selected_cols)), by = c('token_no', 'speaker')) %>% 
-    mutate(time = time_values[[merge_con]]) %>% 
-    dplyr::rename(citation_no = token_no)
-  
-  return(merged_df)
-}
-```
-
 Clean raw data
 ```{r clean-data-f0}
 # citation data
@@ -112,7 +62,6 @@ f0_mono_pre <- data_merge(f0_mono_raw) %>%
   dplyr::rename(citation_tone = tone)
 f0_di_ct_pre <- data_merge(f0_di_ct_raw) %>% mutate(diortri = 'di')
 f0_tri_ct_pre <- data_merge(f0_tri_ct_raw) %>% mutate(diortri = 'tri')
-
 
 # focus data
 f0_focus_pre <- f0_focus_raw %>% left_join(label_focus, by = 'focus_no')
@@ -160,48 +109,6 @@ f0_all_pre <-
   select(desired_order)
 ```
 
-## Construct citation tone combination data
-```{r}
-std <- function(x) sd(x)/sqrt(length(x))
-
-detach(package:plyr)
-f0_mono_ct_avg <- f0_all_pre %>% filter(is.na(diortri) == TRUE) %>% 
-  mutate(citation_tone = case_when(
-    str_sub(citation_tone, end = 2) == 'HH' ~ 'HH',
-    str_sub(citation_tone, end = 2) == 'HL' ~ 'HL',
-    .default = citation_tone
-  )) %>% 
-  filter(!(citation_tone == 'HL' & speaker == 'S6')) %>% 
-  group_by(citation_tone, time) %>% 
-  summarise(meanf0 = mean(norm_f0),
-              se = std(norm_f0)) %>% 
-  ungroup() %>% 
-  dplyr::rename(tone = citation_tone)
-
-f0_di_ct_avg <- cross_join(f0_mono_ct_avg, f0_mono_ct_avg, suffix = c("_1", "_2")) %>% 
-  mutate(citation_tone = paste(tone_1, tone_2, sep = '_')) %>% 
-  pivot_longer(-citation_tone,
-               cols_vary = "slowest",
-               names_to = c(".value", "syllable"),
-               names_pattern = "(.+)_(.+)") %>% 
-  distinct() %>% 
-  mutate(time = as.numeric(time)) %>% 
-  mutate(time = ifelse(syllable == '2', time+10, time))
-
-di_int <- cross_join(f0_mono_ct_avg, f0_mono_ct_avg, suffix = c("_1", "_2")) %>% distinct()
-mono_int <- f0_mono_ct_avg
-colnames(mono_int) <- paste0(colnames(mono_int), '_3')
-
-f0_tri_ct_avg <- 
-  cross_join(di_int, mono_int)%>% 
-  mutate(citation_tone = paste(tone_1, tone_2, tone_3, sep = '_')) %>% 
-  pivot_longer(-citation_tone,
-               cols_vary = "slowest",
-               names_to = c(".value", "syllable"),
-               names_pattern = "(.+)_(.+)") %>% 
-  distinct() %>% 
-  mutate(time = as.numeric(time))
-```
 
 
 ## Saving
