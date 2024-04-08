@@ -26,9 +26,10 @@ library(kml)
 
 # Data preparations  
 **Construct data frame ** 
-```{r data-construction}
-source('functions.R')
+```{r data-construction, cache=FALSE}
 load("XSTSF_production.RData")
+source('functions.R')
+
 
 # add manual sandhi labels
 label_sandhi <- read.csv('raw_data/sandhi_label.csv', 
@@ -53,6 +54,10 @@ f0_di_ct <- f0_di %>% filter(focus_condition == 'ct') %>%
 # get H- & L-register initial di citation data
 f0_di_ct_h <- f0_di_ct %>% filter(grepl('^H', mono_tone_1)) 
 f0_di_ct_l <- f0_di_ct %>% filter(grepl('^[LR]', mono_tone_1)) 
+
+draw_by
+
+getwd()
 ```
 
 
@@ -106,7 +111,10 @@ f0_di_lcmh <- f0_di_ct %>% filter(grepl("^[LM]", syntax_iniTone)) %>%
   select(-diortri, -syllable_no, -focus_no, -f0) %>% 
   spread(normtime, norm_f0)
 
-f0_di_lcmh_cluster <- k_means(f0_di_lcmh)
+start <- which(names(f0_di_lcmh)==1)
+end <- which(names(f0_di_lcmh)== 20)
+f0_di_lcmh_cluster<- cld(f0_di_lcmh, idAll=f0_di_lcmh$ind_no, timeInData=start:end, time=c(start:end))
+kml(f0_di_lcmh_cluster, nbClusters = 2:10) 
 plot(f0_di_lcmh_cluster, 7, parTraj=parTRAJ(col="clusters"))
 ```
 

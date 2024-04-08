@@ -53,12 +53,13 @@ draw_by <- function(dataframe, x, y){
   p <- dataframe %>% 
     ggplot(aes(x=normtime, y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
     geom_line()+
-    ylim(-3, 3)+
     {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), ncol = 2, labeller = label_both)}
       else {facet_grid(as.formula(paste(y, "~", x)), labeller = label_value)}}+
     theme_bw()+
     theme(panel.spacing.y = unit(0.02, "cm", data = NULL),
-          text = element_text(size = 10)) 
+          text = element_text(size = 10))+
+    ylim(-4, 4)
+  
   p
 }
 
@@ -91,7 +92,6 @@ k_means <- function(df){
   # create object for clustering
   group_cluster_model <- cld(df, idAll=df$ind_no, timeInData=start:end, time=c(start:end))
   
-  # run clustering algorithm
   kml(group_cluster_model, nbClusters = 2:10) 
   
   return(group_cluster_model)
