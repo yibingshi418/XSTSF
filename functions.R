@@ -92,8 +92,6 @@ k_means <- function(df){
   # create object for clustering
   group_cluster_model <- cld(df, idAll=df$ind_no, timeInData=start:end, time=c(start:end))
   
-  kml(group_cluster_model, nbClusters = 2:10) 
-  
   return(group_cluster_model)
 }
 
@@ -118,7 +116,7 @@ get_cluster_solution <- function(df){
 }
 
 # visualise cluster results
-p_cluster <- function(df_cluster, x){
+p_cluster <- function(df_cluster, x, y = NULL){
   p_cluster <- df_cluster %>% 
     ggplot(aes(x = propdur, y = norm_f0, group = groupvar, color = {{x}}, text = paste('ind_no: ', ind_no))) +
     geom_line(alpha = 0.2) +
@@ -133,6 +131,10 @@ p_cluster <- function(df_cluster, x){
           text = element_text(family = 'Times New Roman', size = 20),
           axis.title.x = element_text(margin = margin(t = 10)),
           axis.title.y = element_text(margin = margin(r = 20)))
+  
+  if (!is.null(y)) {
+    p_cluster <- p_cluster + facet_wrap(as.formula(paste("~", y)), ncol = 4, labeller = label_both)
+  }
   
   return(p_cluster)
 }
