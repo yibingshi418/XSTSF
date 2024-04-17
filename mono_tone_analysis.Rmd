@@ -75,6 +75,27 @@ The plot below shows the f0 contours of the 4 non-checked tones (HH, HL, LH, RF)
 ```{r out.width='50%', out.height='300px', message=FALSE}
 p_cluster(f0_mono_pre, citation_tone_sync,avg_line_width = 4)
 ```
+
+The plot below shows the numbers of tokens collected for each tone. 
+```{r out.width='50%', out.height='300px', }
+f0_mono_count_all <- f0_mono_pre %>% 
+  group_by(citation_tone_sync) %>% 
+  count() %>% 
+  mutate(n = n/10) 
+f0_mono_count_all
+
+f0_mono_pre %>% 
+  group_by(citation_tone_sync, speaker) %>% 
+  count() %>% 
+  mutate(n = n/10) %>% 
+  ggplot(aes(x = citation_tone_sync, y = n, fill = speaker))+
+  geom_bar(stat="identity", position=position_dodge())+
+  geom_text(aes(label=n), vjust=1.6, color="black",
+            position = position_dodge(0.9), size=3.5)+
+  scale_fill_brewer(palette="Paired")
+```
+
+
 <br>
 
 ## Individual speakers
