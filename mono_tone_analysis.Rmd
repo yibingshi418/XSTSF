@@ -70,7 +70,7 @@ p_cluster <- function(df_cluster, x, y = NULL,  avg_line_width = 2.5){
 <br>
 
 ## Average contours
-The plot below shows the f0 contours of the 4 non-checked tones across all the 8 speakers. The solid lines are average contours, and the faint lines are individual contours for each token.
+The plot below shows the f0 contours of the 4 non-checked tones (HH, HL, LH, RF) across all the 8 speakers. The solid lines are average contours, and the faint lines are individual contours for each token.
 
 ```{r out.width='50%', out.height='300px', message=FALSE}
 p_cluster(f0_mono_pre, citation_tone_sync,avg_line_width = 4)
@@ -81,13 +81,14 @@ p_cluster(f0_mono_pre, citation_tone_sync,avg_line_width = 4)
 The plot below shows the f0 contours of the tones for each speaker. This plot is <span style="color: red;">interactive</span>, so you can:  
 
 1. move your cursor to the contours to get more specific information (speaker, token, time, norm_f0, etc.);  
-2. double click the tone category in the legend on the top to visualise this category only. 
+2. double click the tone category in the legend on the right to visualise this category only. 
 
 There are some observations:  
 
 1. S6 has a quite 'level' HL, due to the creakiness he usually produced at the end of the contour for the HL tone. We could exclude his HL tone contours from the dataset.  
-2. S7's HL tone is not measured accurately using the Praat Script [*ProsodyPro*](https://www.homepages.ucl.ac.uk/~uclyyix/ProsodyPro/).  
-3. S8 almost produced every tone with a falling end, so his tones seem to be merging.
+2. S6's RF tone: same as above.  
+3. S7's HL tone is not measured accurately using the Praat Script [*ProsodyPro*](https://www.homepages.ucl.ac.uk/~uclyyix/ProsodyPro/).  
+4. S8 almost produced every tone with a falling end, so his tones seem to be merging.
 
 ```{r out.width='100%', out.height='500px', message=FALSE}
 ggplotly(p_cluster(f0_mono_pre, citation_tone_sync, 'speaker',  avg_line_width = 1.5), 
