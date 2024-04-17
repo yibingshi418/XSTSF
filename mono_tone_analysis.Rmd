@@ -1,9 +1,6 @@
 ---
 title: "Analysis of monosyllabic tone system in Xiangshan"
-output: 
-  html_document:
-    toc: true
-    toc_float: true
+output: html_document
 author: Yibing Shi
 date: "Last updated: 2024-04-17"
 ---
@@ -72,12 +69,12 @@ p_cluster <- function(df_cluster, x, y = NULL,  avg_line_width = 2.5){
 ## Average contours
 The plot below shows the f0 contours of the 4 non-checked tones (HH, HL, LH, RF) across all the 8 speakers. The solid lines are average contours, and the faint lines are individual contours for each token.
 
-```{r out.width='50%', out.height='300px', message=FALSE}
+```{r, message=FALSE}
 p_cluster(f0_mono_pre, citation_tone_sync,avg_line_width = 4)
 ```
 
 The plot below shows the numbers of tokens collected for each tone. 
-```{r out.width='50%', out.height='300px', }
+```{r}
 f0_mono_count_all <- f0_mono_pre %>% 
   group_by(citation_tone_sync) %>% 
   count() %>% 
