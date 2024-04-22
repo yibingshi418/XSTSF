@@ -1,0 +1,78 @@
+---
+title: "Analysis of disyllabic Lexical Compound & Modifier-Head phrases citation tone
+  sandhi patterns in Xiangshan"
+output: html_document
+date: "2024-04-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# L-register-initial LC & MH
+
+## Perceptual categorisation
+```{r}
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh_l %>% 
+  mutate(propdur = as.integer(normtime)/20) %>% 
+  unite('groupvar', ind_no, syllable_no, sep = '_', remove = FALSE) %>% 
+  filter(is.na(sandhi_tone) == FALSE) %>% 
+  filter(!ind_no %in% c('S2_44_ct', 'S3_37_ct', 'S3_44_ct', 'S6_31_ct', 'S6_39_ct', 'S7_33_ct')) 
+  
+unique(f0_di_ct_lcmh_l$sandhi_tone) # check the labels
+
+p_cluster(f0_di_ct_lcmh_l, sandhi_tone)
+```
+
+
+
+# k-means clustering analysis
+
+L-register LC & MH
+```{r}
+# data preparation
+f0_di_ct_lcmh_l_kmeans <- f0_di_ct_lcmh_l %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0, -groupvar, -propdur) %>% 
+  spread(normtime, norm_f0)
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_di_ct_lcmh_l_kmeans)
+kml::plot(cluster_model, 5, parTraj=parTRAJ(col="clusters"))
+
+# get cluster results
+f0_di_ct_lcmh_l_kmeans <- f0_di_ct_lcmh_l_kmeans %>% 
+  mutate(cluster3 = getClusters(cluster_model, 3),
+         sub_cluster = paste0(sandhi_tone, '_', cluster3))
+
+# heatmap distribution
+cluster_solution <- get_cluster_solution(f0_di_ct_lcmh_l_kmeans)
+heatmap_df <- heatmap_data(cluster_solution, cluster3)
+compare_cluster(heatmap_df, 'cluster3')
+```
+```{r}
+# examine mismathes
+cluster_llrf <- cluster_solution %>% filter(sandhi_tone == 'LLRF')
+ggplotly(p_cluster(cluster_llrf, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_lllm <- cluster_solution %>% filter(sandhi_tone == 'LLLM')
+ggplotly(p_cluster(cluster_lllm, sub_cluster), tooltip = c('text', 'x'))
+```
+
+```{r, include=FALSE}
+# try doing k-means for the whole disyllabic citation dataset
+f0_di_ct_lcmh_kmeans <- f0_di_ct_lcmh %>% 
+  filter(!sandhi_tone %in% c(NA, 'outlier')) %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(normtime, norm_f0)
+
+f0_di_ct_lcmh_cluster <- k_means(f0_di_ct_lcmh_kmeans)
+kml(f0_di_ct_lcmh_cluster, nbClusters = 2:10) 
+plot(f0_di_ct_lcmh_cluster, 7, parTraj=parTRAJ(col="clusters"))
+
+f0_di_ct_lcmh_kmeans <- f0_di_ct_lcmh_kmeans %>% 
+  mutate(cluster7 = getClusters(f0_di_ct_lcmh_cluster, 7))
+
+# Mapping between human and machine clustering
+cluster_solution <- get_cluster_solution(f0_di_ct_lcmh_kmeans)
+compare_cluster(cluster_solution, 'cluster7')
+```

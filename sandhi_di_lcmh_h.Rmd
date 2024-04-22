@@ -1,0 +1,141 @@
+---
+title: "Analysis of disyllabic citation tone sandhi patterns in Xiangshan"
+author: Yibing Shi
+date: "Last updated: 2024-04-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(plotly)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+
+f0_di_ct_lcmh <- f0_all_pre %>% 
+  filter(diortri == 'di' & focus_condition == 'ct' & syntax %in% c('L', 'M')) %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLHL' ~ 'LLRF', 
+                                 .default = sandhi_tone)) %>% 
+  filter(is.na(sandhi_tone) == FALSE) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) 
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1)) 
+```
+
+
+# Initial data inspection
+
+```{r fig.height=8}
+# yinping-initial LC & MH
+f0_di_ct_lcmh_hp <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinping')
+ggplotly(draw_by(f0_di_ct_lcmh_hp, 'speaker'), tooltip = c('text', 'x'))
+
+# yinshang-initial LC & MH
+f0_di_ct_lcmh_hs <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinshang')
+ggplotly(draw_by(f0_di_ct_lcmh_hs, 'speaker'), tooltip = c('text', 'x'))
+
+# yangping-initial LC & MH
+f0_di_ct_lcmh_lp <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangping')
+ggplotly(draw_by(f0_di_ct_lcmh_lp, 'speaker'), tooltip = c('text', 'x'))
+
+# yangshang-initial LC & MH
+f0_di_ct_lcmh_ls <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangshang')
+ggplotly(draw_by(f0_di_ct_lcmh_ls, 'speaker'), tooltip = c('text', 'x'))
+```
+
+
+# H-register-initial LC & MH
+
+## Perceptual categorisation
+```{r out.width='100%'}
+unique(f0_di_ct_lcmh_h$sandhi_tone) # check the labels
+
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone)
+```
+
+## Within-category variations
+```{r out.width='100%'}
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone, 'speaker')
+```
+
+```{r}
+# examine individual cases
+f0_di_ct_lcmh_h %>% filter(sandhi_tone == 'HMML' & speaker == 'S2') 
+```
+
+## Distribution analysis
+```{r}
+# check values
+unique(f0_di_ct_lcmh$sync_tone2)
+
+# by second tone
+distri_vis(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+distri_vis(f0_di_ct_lcmh_h, hist_tone2, sandhi_tone)
+
+# by first tone
+distri_vis(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+distri_vis(f0_di_ct_lcmh_h, hist_tone1, sandhi_tone)
+
+# by speaker
+distri_vis(f0_di_ct_lcmh_hp, speaker, sandhi_tone)
+distri_vis(f0_di_ct_lcmh_hs, speaker, sandhi_tone)
+
+# by item
+distri_vis(f0_di_ct_lcmh_hp, citation_no, sandhi_tone)
+distri_vis(f0_di_ct_lcmh_hs, citation_no, sandhi_tone)
+
+# by syntax
+distri_vis(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+```
+
+## k-means clustering 
+```{r message=FALSE, warning=FALSE}
+# data preparation
+f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0, -propdur) %>% 
+  spread(normtime, norm_f0)
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_di_ct_lcmh_h_kmeans)
+kml::plot(cluster_model, 6, parTraj=parTRAJ(col="clusters"))
+
+# get cluster results
+f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h_kmeans %>% 
+  mutate(cluster4 = getClusters(cluster_model, 4),
+         sub_cluster = paste0(sandhi_tone, '_', cluster4))
+
+# heatmap distribution
+cluster_solution <- get_cluster_solution(f0_di_ct_lcmh_h_kmeans)
+heatmap_df <- heatmap_data(cluster_solution, cluster4)
+compare_cluster(heatmap_df, 'cluster4')
+```
+
+Examine mismathes
+```{r}
+cluster_hhhh <- cluster_solution %>% filter(sandhi_tone == 'HHHH')
+ggplotly(p_cluster(cluster_hhhh, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_hmml <- cluster_solution %>% filter(sandhi_tone == 'HMML')
+ggplotly(p_cluster(cluster_hmml, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_mhhl <- cluster_solution %>% filter(sandhi_tone == 'MHHL')
+ggplotly(p_cluster(cluster_mhhl, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_mmmh <- cluster_solution %>% filter(sandhi_tone == 'MMMH')
+ggplotly(p_cluster(cluster_mmmh, sub_cluster), tooltip = c('text', 'x'))
+```
+
+
+
