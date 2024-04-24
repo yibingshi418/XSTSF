@@ -111,20 +111,84 @@ compare_cluster <- function(df, x){
 
 
 ######### Distribution analysis #########
-distri_vis <- function(df, x, y){
-  df1 <- df %>% filter(time == 1) %>% 
-    count({{x}}, {{y}})
+distri_count <- function(df, x, y, z=NULL){
+  x <- rlang::enquo(x)
+  y <- rlang::enquo(y)
+  z <- rlang::enquo(z)
   
-  p <- ggplot(df1, aes(x={{x}},y=n, fill={{y}}, label=n)) + 
+  # Group by x, y, and optionally z
+  if(is.null(z)) {
+    df1 <- df %>% 
+      filter(time == 1) %>% 
+      group_by(!!x, !!y) %>% 
+      count() %>% 
+      ungroup()
+  } else {
+    df1 <- df %>% 
+      filter(time == 1) %>% 
+      group_by(!!x, !!y, !!z) %>% 
+      count() %>% 
+      ungroup()
+  }
+  
+  p <- ggplot(df1, aes_string(x = quo_name(x), y = "n", fill = quo_name(y), label = "n")) + 
     geom_bar(position="stack", stat="identity")+
     geom_text(size = 4, position = position_stack(vjust = 0.5))+
     scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
     theme_minimal()+
-    #xlab('2nd.syllable.tone')+
+    ylab('count')+
+    labs(fill = 'cluster')+
+    theme(text=element_text(size=20, family = 'Times New Roman'))
+  
+  if (!is.null(z)) {
+    p <- p + facet_wrap(as.formula(paste("~", quo_name(z))))
+  }
+  
+  return(p)
+}
+
+distri_prop <- function(df, x, y){
+  df1 <- df %>% filter(time == 1) %>% 
+    count({{x}}, {{y}}) %>% 
+    group_by({{x}}) %>% 
+    mutate(count = sum(n),
+           prop = n/count) %>% 
+    ungroup()
+  
+  p <- ggplot(df1, aes(x={{x}},y=prop, fill={{y}}, label=sprintf("%.2f", prop))) + 
+    geom_bar(position="stack", stat="identity")+
+    geom_text(size = 4, position = position_stack(vjust = 0.5))+
+    scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
+    theme_minimal()+
     ylab('count')+
     labs(fill = 'cluster')+
     theme(text=element_text(size=20, family = 'Times New Roman'))
   
   return(p)
 }
+
+######### Gradience visualisation #########
+std <- function(x) sd(x)/sqrt(length(x))
+
+p_sub_cluster <- function(df, x, y){
+  df_mean <- df %>% 
+    group_by({{x}}, {{y}}, syllable_no, time) %>% 
+    summarise(meanf0 = mean(norm_f0),
+              se = std(norm_f0),
+              count = n()) %>% 
+    mutate(count_text = case_when(time == 20 ~ paste('n=', count, sep = ''),
+                                  .default = NA))
+  
+  p <- ggplot(df_mean, aes(x = time, y = meanf0, color = {{x}}, fill = {{x}}, group = interaction({{x}}, syllable_no)))+
+    geom_line(size = 1)+
+    geom_ribbon(aes(ymin = meanf0 - se, ymax = meanf0 + se), alpha = .2, linetype = 0)+
+    geom_text_repel(data = subset(df_mean, is.na(count_text) == FALSE), 
+                    aes(label = count_text), size = 5, family = 'Times New Roman')+
+    facet_wrap(vars({{y}}))+
+    theme_classic()+
+    ylim(-3, 3)
+  
+  return(p)
+}
+
 

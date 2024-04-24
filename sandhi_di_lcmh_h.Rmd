@@ -14,7 +14,9 @@ library(kableExtra)
 library(ggplot2)
 library(gridExtra) 
 library(ggthemes)
+library(viridis)
 library(plotly)
+library(ggrepel)
 library(kml)
 ```
 
@@ -29,8 +31,10 @@ f0_di_ct_lcmh <- f0_all_pre %>%
                                  sandhi_tone == 'LLHL' ~ 'LLRF', 
                                  .default = sandhi_tone)) %>% 
   filter(is.na(sandhi_tone) == FALSE) %>% 
-  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct', 'S8_1_ct')) 
 f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lc_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'L')
+f0_di_ct_mh_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'M')
 f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1)) 
 ```
 
@@ -66,13 +70,19 @@ p_cluster(f0_di_ct_lcmh_h, sandhi_tone)
 ```
 
 ## Within-category variations
-```{r out.width='100%'}
+```{r out.width='100%', message=FALSE}
 p_cluster(f0_di_ct_lcmh_h, sandhi_tone, 'speaker')
+p_cluster(f0_di_ct_lc_h, sandhi_tone, 'speaker')
+p_cluster(f0_di_ct_mh_h, sandhi_tone, 'speaker')
+
+ggplotly(p_cluster(f0_di_ct_lcmh_h, sync_tone1, 'sandhi_tone'))
 ```
 
 ```{r}
 # examine individual cases
-f0_di_ct_lcmh_h %>% filter(sandhi_tone == 'HMML' & speaker == 'S2') 
+f0_di_ct_lc_h %>% filter(sandhi_tone == 'HMML' & sync_tone1 == 'HL') %>% 
+  select(token, ind_no) %>% 
+  distinct()
 ```
 
 ## Distribution analysis
@@ -80,25 +90,58 @@ f0_di_ct_lcmh_h %>% filter(sandhi_tone == 'HMML' & speaker == 'S2')
 # check values
 unique(f0_di_ct_lcmh$sync_tone2)
 
+# first tone
+distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1)
+
 # by second tone
-distri_vis(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
-distri_vis(f0_di_ct_lcmh_h, hist_tone2, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+distri_prop(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, hist_tone2, sandhi_tone)
 
 # by first tone
-distri_vis(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
-distri_vis(f0_di_ct_lcmh_h, hist_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, hist_tone1, sandhi_tone)
 
 # by speaker
-distri_vis(f0_di_ct_lcmh_hp, speaker, sandhi_tone)
-distri_vis(f0_di_ct_lcmh_hs, speaker, sandhi_tone)
+distri_count(f0_di_ct_lcmh_hp, speaker, sandhi_tone)
+distri_count(f0_di_ct_lcmh_hs, speaker, sandhi_tone)
 
 # by item
-distri_vis(f0_di_ct_lcmh_hp, citation_no, sandhi_tone)
-distri_vis(f0_di_ct_lcmh_hs, citation_no, sandhi_tone)
+distri_count(f0_di_ct_lcmh_hp, citation_no, sandhi_tone)
+distri_count(f0_di_ct_lcmh_hs, citation_no, sandhi_tone)
 
 # by syntax
-distri_vis(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+distri_prop(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+
+distri_count(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1)
+distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1, syntax)
+
+distri_count(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+distri_count(f0_di_ct_lcmh_h, speaker, sync_tone2)
+distri_count(f0_di_ct_lcmh_h, speaker, syntax, sandhi_tone)
 ```
+## Gradience
+
+```{r, warning=FALSE, message=FALSE}
+p_sub_cluster(f0_di_ct_lcmh_h, citation_tone, sandhi_tone)
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone1, sandhi_tone)
+p_sub_cluster(f0_di_ct_mh_h, sync_tone1, sandhi_tone)
+
+
+p_sub_cluster(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone2, sandhi_tone)
+p_sub_cluster(f0_di_ct_mh_h, sync_tone2, sandhi_tone)
+
+
+p_sub_cluster(f0_di_ct_lcmh_h, sandhi_tone, speaker)
+p_sub_cluster(f0_di_ct_lcmh_h, speaker, sandhi_tone)
+```
+
 
 ## k-means clustering 
 ```{r message=FALSE, warning=FALSE}
@@ -136,6 +179,8 @@ ggplotly(p_cluster(cluster_mhhl, sub_cluster), tooltip = c('text', 'x'))
 cluster_mmmh <- cluster_solution %>% filter(sandhi_tone == 'MMMH')
 ggplotly(p_cluster(cluster_mmmh, sub_cluster), tooltip = c('text', 'x'))
 ```
+
+
 
 
 
