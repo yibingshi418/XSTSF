@@ -1,0 +1,54 @@
+---
+title: "Analysis of disyllabic Verb-Object phrases citation tone sandhi patterns in
+  Xiangshan"
+output: html_document
+date: "2024-04-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_di_ct_vo <- f0_all_ct %>% 
+  filter(syntax %in% c('V') & diortri == 'di') 
+  
+f0_di_ct_vo_h <- f0_di_ct_vo %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_vo_l <- f0_di_ct_vo %>% filter( grepl('^[LR]', sync_tone1)) 
+```
+
+# Initial data inspection
+
+```{r fig.height=8}
+# yinping-initial VO
+f0_di_ct_vo_hp <- f0_di_ct_vo_h %>% filter(hist_tone1 == 'yinping')
+ggplotly(draw_by(f0_di_ct_vo_hp, 'speaker'), tooltip = c('text', 'x'))
+
+# yinshang-initial VO
+f0_di_ct_vo_hs <- f0_di_ct_vo_h %>% filter(hist_tone1 == 'yinshang')
+ggplotly(draw_by(f0_di_ct_vo_hs, 'speaker'), tooltip = c('text', 'x'))
+
+# yangshang-initial VO
+f0_di_ct_vo_ls <- f0_di_ct_vo_l %>% filter(hist_tone1 == 'yangshang')
+ggplotly(draw_by(f0_di_ct_vo_ls, 'speaker'), tooltip = c('text', 'x'))
+```

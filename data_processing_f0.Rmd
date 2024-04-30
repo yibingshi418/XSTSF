@@ -14,8 +14,6 @@ library(tidyr)
 library(tidyverse)
 library(rlang)
 library(openxlsx)
-
-source('functions.R')
 ```
 
 ## Functions
@@ -172,6 +170,12 @@ f0_all_pre <- plyr::rbind.fill(f0_mono_pre, f0_di_ct_pre, f0_tri_ct_pre, f0_di_f
                                      .default = sandhi_tone_var)) %>% 
   # re-order columns
   select(desired_order) 
+
+
+library(plyr)
+detach(package:plyr)
+f0_all_pre <- f0_all_pre %>% dplyr::group_by(speaker) %>% 
+  dplyr::mutate(norm_f0 = scale(log(f0)))
 ```
 
 

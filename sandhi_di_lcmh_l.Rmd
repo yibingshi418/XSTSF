@@ -2,26 +2,105 @@
 title: "Analysis of disyllabic Lexical Compound & Modifier-Head phrases citation tone
   sandhi patterns in Xiangshan"
 output: html_document
-date: "2024-04-22"
+date: "2024-04-26"
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
 ```
 
-# L-register-initial LC & MH
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
 
-## Perceptual categorisation
-```{r}
-f0_di_ct_lcmh_l <- f0_di_ct_lcmh_l %>% 
-  mutate(propdur = as.integer(normtime)/20) %>% 
-  unite('groupvar', ind_no, syllable_no, sep = '_', remove = FALSE) %>% 
-  filter(is.na(sandhi_tone) == FALSE) %>% 
-  filter(!ind_no %in% c('S2_44_ct', 'S3_37_ct', 'S3_44_ct', 'S6_31_ct', 'S6_39_ct', 'S7_33_ct')) 
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLHL' ~ 'LLRF', 
+                                 .default = sandhi_tone)) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct',
+                        'S2_44_ct', 'S3_37_ct', 'S3_44_ct', 'S6_16_ct', 'S6_31_ct', 'S6_39_ct', 'S7_33_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
   
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lc_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'L')
+f0_di_ct_mh_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'M')
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1))
+f0_di_ct_lc_l <- f0_di_ct_lcmh_l %>% filter(syntax == 'L')
+f0_di_ct_mh_l <- f0_di_ct_lcmh_l %>% filter(syntax == 'M')
+```
+
+
+# Initial data inspection
+
+```{r fig.height=8}
+# yinping-initial LC & MH
+f0_di_ct_lcmh_hp <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinping')
+ggplotly(draw_by(f0_di_ct_lcmh_hp, 'speaker'), tooltip = c('text', 'x'))
+
+# yinshang-initial LC & MH
+f0_di_ct_lcmh_hs <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinshang')
+ggplotly(draw_by(f0_di_ct_lcmh_hs, 'speaker'), tooltip = c('text', 'x'))
+
+# yangping-initial LC & MH
+f0_di_ct_lcmh_lp <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangping')
+ggplotly(draw_by(f0_di_ct_lcmh_lp, 'speaker'), tooltip = c('text', 'x'))
+
+# yangshang-initial LC & MH
+f0_di_ct_lcmh_ls <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangshang')
+ggplotly(draw_by(f0_di_ct_lcmh_ls, 'speaker'), tooltip = c('text', 'x'))
+```
+
+
+# Perceptual categorisation
+```{r, warning=FALSE, message=FALSE}
 unique(f0_di_ct_lcmh_l$sandhi_tone) # check the labels
 
 p_cluster(f0_di_ct_lcmh_l, sandhi_tone)
+```
+
+# Distribution analysis  
+
+```{r}
+# monosyllabic tone (initial tone)
+distri_count(f0_di_ct_lcmh_l, speaker, sync_tone1)
+distri_count(f0_di_ct_lcmh_l, hist_tone1, sync_tone1)
+
+# by second tone
+distri_count(f0_di_ct_lcmh_l, sync_tone2, sandhi_tone)
+distri_count(f0_di_ct_lcmh_l, sync_tone2, sandhi_tone, hist_tone1)
+distri_count(f0_di_ct_lc_l, sync_tone2, sandhi_tone)+ggtitle('Lexical compounds')
+distri_count(f0_di_ct_mh_l, sync_tone2, sandhi_tone)+ggtitle('Adjective-Noun phrases')
+distri_count(f0_di_ct_lcmh_l, hist_tone2, sandhi_tone)
+
+# by first tone
+distri_count(f0_di_ct_lcmh_l, sync_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_l, hist_tone1, sandhi_tone)
+distri_count(f0_di_ct_lcmh_l, hist_tone1, sandhi_tone, syntax)
+
+# by speaker
+distri_count(f0_di_ct_lcmh_l, speaker, sandhi_tone, hist_tone1)
+
+# by item
+distri_count(f0_di_ct_lcmh_lp, citation_no, sandhi_tone)
+distri_count(f0_di_ct_lcmh_ls, citation_no, sandhi_tone)
 ```
 
 

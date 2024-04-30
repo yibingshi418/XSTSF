@@ -1,7 +1,7 @@
 ---
 title: "Analysis of disyllabic citation tone sandhi patterns in Xiangshan"
 author: Yibing Shi
-date: "Last updated: 2024-04-21"
+date: "Last updated: 2024-04-26"
 output: html_document
 ---
 
@@ -20,18 +20,26 @@ library(ggrepel)
 library(kml)
 ```
 
+
 # Data preparations  
+
 ```{r data-construction, cache=FALSE}
 load("XSTSF_production.RData")
 source('functions.R')
 
-f0_di_ct_lcmh <- f0_all_pre %>% 
-  filter(diortri == 'di' & focus_condition == 'ct' & syntax %in% c('L', 'M')) %>% 
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
   mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
                                  sandhi_tone == 'LLHL' ~ 'LLRF', 
                                  .default = sandhi_tone)) %>% 
-  filter(is.na(sandhi_tone) == FALSE) %>% 
-  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct', 'S8_1_ct')) 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+  
 f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
 f0_di_ct_lc_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'L')
 f0_di_ct_mh_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'M')
@@ -39,7 +47,7 @@ f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1))
 ```
 
 
-# Initial data inspection
+# Initial data inspection  
 
 ```{r fig.height=8}
 # yinping-initial LC & MH
@@ -60,42 +68,23 @@ ggplotly(draw_by(f0_di_ct_lcmh_ls, 'speaker'), tooltip = c('text', 'x'))
 ```
 
 
-# H-register-initial LC & MH
+# Perceptual categorisation  
 
-## Perceptual categorisation
-```{r out.width='100%'}
+```{r out.width='100%', message=FALSE, warning=FALSE}
 unique(f0_di_ct_lcmh_h$sandhi_tone) # check the labels
 
 p_cluster(f0_di_ct_lcmh_h, sandhi_tone)
 ```
 
-## Within-category variations
-```{r out.width='100%', message=FALSE}
-p_cluster(f0_di_ct_lcmh_h, sandhi_tone, 'speaker')
-p_cluster(f0_di_ct_lc_h, sandhi_tone, 'speaker')
-p_cluster(f0_di_ct_mh_h, sandhi_tone, 'speaker')
-
-ggplotly(p_cluster(f0_di_ct_lcmh_h, sync_tone1, 'sandhi_tone'))
-```
+# Distribution analysis  
 
 ```{r}
-# examine individual cases
-f0_di_ct_lc_h %>% filter(sandhi_tone == 'HMML' & sync_tone1 == 'HL') %>% 
-  select(token, ind_no) %>% 
-  distinct()
-```
-
-## Distribution analysis
-```{r}
-# check values
-unique(f0_di_ct_lcmh$sync_tone2)
-
-# first tone
+# monosyllabic tone (initial tone)
 distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1)
+distri_count(f0_di_ct_lcmh_h, hist_tone1, sync_tone1)
 
 # by second tone
 distri_count(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
-distri_prop(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
 distri_count(f0_di_ct_lcmh_h, hist_tone2, sandhi_tone)
 
 # by first tone
@@ -112,47 +101,63 @@ distri_count(f0_di_ct_lcmh_hs, citation_no, sandhi_tone)
 
 # by syntax
 distri_count(f0_di_ct_lcmh_h, syntax, sandhi_tone)
-distri_prop(f0_di_ct_lcmh_h, syntax, sandhi_tone)
-
-distri_count(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
-distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1)
 distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1, sandhi_tone)
-distri_count(f0_di_ct_lcmh_h, speaker, sync_tone1, syntax)
-
-distri_count(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
-distri_count(f0_di_ct_lcmh_h, speaker, sync_tone2)
-distri_count(f0_di_ct_lcmh_h, speaker, syntax, sandhi_tone)
 ```
-## Gradience
+
+Count vs. percentage
+```{r}
+distri_count(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+distri_prop(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+```
+
+
+# Gradience
+
+## Within-category variations
+```{r out.width='100%', message=FALSE, warning=FALSE}
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone, 'speaker')
+p_cluster(f0_di_ct_lc_h, sandhi_tone, 'speaker')+ggtitle('Lexical compounds')
+p_cluster(f0_di_ct_mh_h, sandhi_tone, 'speaker')+ggtitle('Adjective-Noun phrases')
+```
+
+```{r, include=FALSE}
+# examine individual cases
+f0_di_ct_lc_h %>% filter(sandhi_tone == 'HMML' & sync_tone1 == 'HL') %>% 
+  select(token, ind_no) %>% 
+  distinct()
+```
+
+## Group-by different factors
 
 ```{r, warning=FALSE, message=FALSE}
-p_sub_cluster(f0_di_ct_lcmh_h, citation_tone, sandhi_tone)
+# first tone: synchronic categories
 p_sub_cluster(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
-p_sub_cluster(f0_di_ct_lc_h, sync_tone1, sandhi_tone)
-p_sub_cluster(f0_di_ct_mh_h, sync_tone1, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone1, sandhi_tone)+ggtitle('Lexical compounds')
+p_sub_cluster(f0_di_ct_mh_h, sync_tone1, sandhi_tone)+ggtitle('Adjective-Noun phrases')
 
-
-p_sub_cluster(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+# second tone [synchronic] & syntax
 p_sub_cluster(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
-p_sub_cluster(f0_di_ct_lc_h, sync_tone2, sandhi_tone)
-p_sub_cluster(f0_di_ct_mh_h, sync_tone2, sandhi_tone)
-
-
-p_sub_cluster(f0_di_ct_lcmh_h, sandhi_tone, speaker)
-p_sub_cluster(f0_di_ct_lcmh_h, speaker, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone2, sandhi_tone)+ggtitle('Lexical compounds')
+p_sub_cluster(f0_di_ct_mh_h, sync_tone2, sandhi_tone)+ggtitle('Adjective-Noun phrases')
+```
+p_cluster() vs. p_sub_cluster()
+```{r, warning=FALSE, message=FALSE}
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+p_cluster(f0_di_ct_lcmh_h, sync_tone1, 'sandhi_tone')
 ```
 
 
-## k-means clustering 
+# k-means clustering 
 ```{r message=FALSE, warning=FALSE}
 # data preparation
 f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h %>% 
-  select(-diortri, -syllable_no, -focus_no, -f0, -propdur) %>% 
-  spread(normtime, norm_f0)
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0)
 
 # k-means clustering
 cluster_model <- k_means_clustering(f0_di_ct_lcmh_h_kmeans)
-kml::plot(cluster_model, 6, parTraj=parTRAJ(col="clusters"))
+kml(cluster_model, nbClusters = 2:10) 
+kml::plot(cluster_model, 4, parTraj=parTRAJ(col="clusters"))
 
 # get cluster results
 f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h_kmeans %>% 
@@ -160,9 +165,10 @@ f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h_kmeans %>%
          sub_cluster = paste0(sandhi_tone, '_', cluster4))
 
 # heatmap distribution
-cluster_solution <- get_cluster_solution(f0_di_ct_lcmh_h_kmeans)
+cluster_solution <- wide_to_long(f0_di_ct_lcmh_h_kmeans) 
 heatmap_df <- heatmap_data(cluster_solution, cluster4)
 compare_cluster(heatmap_df, 'cluster4')
+
 ```
 
 Examine mismathes

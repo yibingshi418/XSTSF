@@ -19,31 +19,31 @@ draw_by <- function(dataframe, x, y){
 # run k-means analysis
 k_means_clustering <- function(df){
   # set up parameters for clustering
-  start <- which(names(df)==1)
+  start <- which(names(df)== 1)
   end <- which(names(df)== 20)
   
   # create object for clustering
   group_cluster_model <- cld(df, idAll=df$ind_no, timeInData=start:end, time=c(start:end))
   
-  # run k-means clustering
-  kml(group_cluster_model, nbClusters = 2:10) 
-  
   return(group_cluster_model)
 }
 
 # convert wide to long dataframe
-wide_to_long <- function(df, x){
+wide_to_long <- function(df, x) {
   column_names <- colnames(df)
   numeric_column_names <- column_names[grepl("^\\d+$", column_names)]
   start <- max(as.integer(numeric_column_names))
   end <- min(as.integer(numeric_column_names))
   
   df <- df %>% 
-    gather("time","norm_f0",as.character(start):as.character(end)) %>% 
-    mutate(syllable_no = case_when(time >= 1 & time <= 10 ~ '1', 
-                                   time >= 11 & time <= 20 ~ '2', 
-                                   time >= 21 & time <= 30 ~ '3', 
-                                   TRUE ~ NA_character_)) 
+    gather("time", "norm_f0", as.character(start):as.character(end)) %>% 
+    mutate(time = as.integer(time)) %>% 
+    mutate(syllable_no = case_when(
+      time >= 1 & time <= 10 ~ '1', 
+      time >= 11 & time <= 20 ~ '2', 
+      time >= 21 & time <= 30 ~ '3',
+      TRUE ~ NA_character_
+    )) 
   
   return(df)
 }
@@ -67,7 +67,7 @@ p_cluster <- function(df, x, y = NULL){
           axis.title.y = element_text(margin = margin(r = 20)))
   
   if (!is.null(y)) {
-    p_cluster <- p_cluster + facet_wrap(as.formula(paste("~", y)), ncol = 4, labeller = label_both)
+    p_cluster <- p_cluster + facet_wrap(as.formula(paste("~", y)), nrow = 2, labeller = label_both)
   }
   
   return(p_cluster)
