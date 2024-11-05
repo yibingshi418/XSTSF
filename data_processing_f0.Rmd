@@ -129,6 +129,8 @@ f0_mono_pre <- data_merge(f0_mono_raw) %>%
 f0_di_ct_pre <- data_merge(f0_di_ct_raw) %>% mutate(diortri = 'di')
 f0_tri_ct_pre <- data_merge(f0_tri_ct_raw) %>% mutate(diortri = 'tri')
 
+f0_tri_ct_pre %>% filter(token == '樱桃皮' & speaker == "S1")
+
 # focus data
 f0_focus_pre <- f0_focus_raw %>% left_join(label_focus, by = 'focus_no')
 
@@ -146,7 +148,7 @@ f0_tri_focus_pre <- data_merge(f0_tri_focus_pre)
 Combine dataframes and final processing
 ```{r data-cleaning-f0, message=FALSE, warning=FALSE}
 label_sandhi <- read.csv('raw_data/sandhi_label.csv', na.strings = '') 
-desired_order <- c('speaker', 'token', 'diortri', 'focus_condition', 'focus_no', 'citation_tone', 'sandhi_tone', 'syllable_no',  'citation_no', 'ind_no', 'sync_tone1', 'sync_tone2', 'sync_tone3', 'hist_tone1', 'hist_tone2', 'hist_tone3', 'syntax', 'time', 'f0', 'norm_f0')
+desired_order <- c('speaker', 'token', 'diortri', 'focus_condition', 'focus_no', 'citation_tone', 'sandhi_tone', 'sandhi_tone_var', 'syllable_no',  'citation_no', 'ind_no', 'sync_tone1', 'sync_tone2', 'sync_tone3', 'hist_tone1', 'hist_tone2', 'hist_tone3', 'syntax', 'time', 'f0', 'norm_f0')
 
 f0_all_pre <- plyr::rbind.fill(f0_mono_pre, f0_di_ct_pre, f0_tri_ct_pre, f0_di_focus_pre, f0_tri_focus_pre) %>%
   # normalisation: z-scores of log f0
@@ -162,12 +164,10 @@ f0_all_pre <- plyr::rbind.fill(f0_mono_pre, f0_di_ct_pre, f0_tri_ct_pre, f0_di_f
          speaker = as.factor(speaker),
          citation_no = as.factor(citation_no),
          ind_no = as.factor(ind_no)) %>% 
-  # add perceptual sandhi categories
+  # add auditory sandhi categories
   select(!sandhi_tone) %>% 
   left_join(label_sandhi[, c('ind_no', 'sandhi_tone', 'sandhi_tone_var', 'diortri')], 
             by = c('diortri', 'ind_no')) %>% 
-  mutate(sandhi_tone_var = case_when(is.na(sandhi_tone_var) == TRUE ~ sandhi_tone,
-                                     .default = sandhi_tone_var)) %>% 
   # re-order columns
   select(desired_order) 
 

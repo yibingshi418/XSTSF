@@ -1,0 +1,129 @@
+---
+title: "di_all"
+output: html_document
+date: "2024-09-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+
+```{r data-construction, cache=FALSE}
+# data processing
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLHL' ~ 'LLRF', 
+                                 .default = sandhi_tone)) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+  
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lc_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'L')
+f0_di_ct_mh_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'M')
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1)) 
+
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh_h %>% 
+  mutate(sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+         sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2)) %>% 
+  mutate(sync_tone1 = factor(sync_tone1, levels = c('HH', 'HL', 'LH', 'LHL')),
+         sync_tone2 = factor(sync_tone2, levels = c('HH', 'HL', 'LH', 'LHL'))) %>% 
+  mutate(hist_tone1 = factor(hist_tone1, levels = c('yinping', 'yinshang')),
+         hist_tone2 = factor(hist_tone2, levels = c('yinping', 'yinqu', 'yangping', 'yangqu'))) %>%
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('HMML', 'MMMH', 'MHHL', 'HHHH')))
+
+
+f0_di_ct_vo <- f0_all_ct %>% 
+  filter(syntax %in% c('V') & diortri == 'di' & is.na(sandhi_tone) == FALSE & ind_no != 'S5_22_ct') 
+  
+f0_di_ct_vo_h <- f0_di_ct_vo %>% 
+  filter( grepl('^H', sync_tone1)) %>% 
+  mutate(sandhi_tone = ifelse(sandhi_tone %in% c('MMMH', 'HHHH'), 'MMHH', 
+                              ifelse(sandhi_tone == 'MHHL', 'MMHL', sandhi_tone))) %>% 
+  mutate(sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+         sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2)) %>% 
+  mutate(sync_tone1 = factor(sync_tone1, levels = c('HH', 'HL', 'LH', 'LHL')),
+         sync_tone2 = factor(sync_tone2, levels = c('HH', 'HL', 'LH', 'LHL'))) %>% 
+  mutate(hist_tone1 = factor(hist_tone1, levels = c('yinping', 'yinshang')),
+         hist_tone2 = factor(hist_tone2, levels = c('yinping', 'yinshang', 'yinqu', 'yangping', 'yangqu'))) %>%
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('HMML', 'MMHL', 'MMHH')))
+  
+f0_di_ct_vo_hp <- f0_di_ct_vo_h %>% filter(hist_tone1 == 'yinping')
+f0_di_ct_vo_hs <- f0_di_ct_vo_h %>% filter(hist_tone1 == 'yinshang')
+
+f0_di_ct_lcmh_h$sandhi_tone <- paste0(f0_di_ct_lcmh_h$sandhi_tone, "_lc")
+f0_di_ct_vo_h$sandhi_tone <- paste0(f0_di_ct_vo_h$sandhi_tone, "_v")
+unique(f0_di_ct_lcmh_h$sandhi_tone)
+unique(f0_di_ct_vo_h$sandhi_tone)
+f0_di_ct_h <- rbind(f0_di_ct_lcmh_h, f0_di_ct_vo_h); f0_di_ct_h
+```
+
+
+# k-means clustering
+
+```{r}
+unique(f0_di_ct_h_kmeans$sandhi_tone)
+```
+
+
+```{r}
+# data preparation
+f0_di_ct_h_kmeans <- f0_di_ct_h %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0) %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('HMML_lc', 'HMML_v', 'MHHL_lc', 'MMHL_v', 'MMMH_lc', 'HHHH_lc', 'MMHH_v')))
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_di_ct_h_kmeans)
+kml(cluster_model, nbClusters = 2:10) 
+kml::plot(cluster_model, 4, parTraj=parTRAJ(col="clusters"))
+plotAllCriterion(cluster_model)
+
+# get cluster results
+f0_di_ct_h_kmeans <- f0_di_ct_h_kmeans %>% 
+  mutate(cluster4 = getClusters(cluster_model, 4),
+         cluster6 = getClusters(cluster_model, 6),
+         cluster7 = getClusters(cluster_model, 7))
+
+f0_di_ct_h_kmeans <- wide_to_long(f0_di_ct_h_kmeans) %>% 
+  mutate(syllable_no = ifelse(time < 11, '1', '2'))
+
+
+# visualisation
+p_kmeans4 <- p_cluster(f0_di_ct_h_kmeans, cluster4); p_kmeans4
+p_kmeans6 <- p_cluster(f0_di_ct_h_kmeans, cluster6); p_kmeans6
+p_kmeans7 <- p_cluster(f0_di_ct_h_kmeans, cluster7); p_kmeans7
+
+# heatmap
+heatmap_df <- heatmap_data(f0_di_ct_h_kmeans, cluster4) 
+p_htmap4 <- compare_cluster(heatmap_df, 'cluster4'); p_htmap4
+
+heatmap_df <- heatmap_data(f0_di_ct_h_kmeans, cluster6) 
+p_htmap6 <- compare_cluster(heatmap_df, 'cluster6'); p_htmap6
+heatmap_df <- heatmap_data(f0_di_ct_h_kmeans, cluster7) 
+p_htmap7 <- compare_cluster(heatmap_df, 'cluster7'); p_htmap7
+```
+

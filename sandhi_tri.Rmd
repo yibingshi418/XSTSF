@@ -1,8 +1,8 @@
 ---
-title: "Analysis of trisyllabic citation tone sandhi patterns in
-  Xiangshan"
+title: "Trisyllabic sandhi in the Xiangshan dialect"
+author: "Yibing Shi"
+date: "2024-10-17"
 output: html_document
-date: "2024-04-27"
 ---
 
 ```{r setup, include=FALSE}
@@ -18,92 +18,211 @@ library(viridis)
 library(plotly)
 library(ggrepel)
 library(kml)
+library(nnet)    # For multinomial logistic regression
+library(glmnet)  # For penalized regression
 ```
 
 # Data preparations  
 ```{r data-construction, cache=FALSE}
 load("XSTSF_production.RData")
 source('functions.R')
+```
 
+
+```{r data-construction, cache=FALSE}
 f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
   group_by(speaker) %>% 
   mutate(norm_f0 = scale(log(f0))) %>% 
-  ungroup()
+  ungroup() %>% 
+  mutate(
+    time = as.numeric(time),
+    syllable_no = case_when(
+    time > 0 & time < 11 ~ 1,
+    time > 10 & time < 21 ~ 2,
+    time > 20 & time < 31 ~ 3
+  ))
 
-f0_tri_ct <- f0_all_ct %>% filter(diortri == 'tri') 
-unique(f0_tri_ct$syntax)
-
-f0_tri_ct_12mh <- f0_tri_ct %>% filter(syntax == '1+2MH')
-f0_tri_ct_12vo <- f0_tri_ct %>% filter(syntax == '1+2VO')
-f0_tri_ct_21vl <- f0_tri_ct %>% filter(syntax == '2+1VL')
-f0_tri_ct_21ll <- f0_tri_ct %>% filter(syntax == '2+1LL')
+f0_tri_ct <- f0_all_ct %>% filter(diortri == 'tri' & sandhi_tone != 'outlier')  
+f0_tri_ct_yp <- f0_tri_ct %>% filter(hist_tone1 == 'yinping')
 ```
 
-# Initial data inspection
+## yinping-initial
+```{r}
+unique(f0_tri_ct_yp$sandhi_tone)
 
-1+2MH
-```{r fig.height=8}
-unique(f0_tri_ct_12mh$hist_tone1)
-
-# yinping-initial VO
-f0_tri_ct_12mh_hp <- f0_tri_ct_12mh %>% filter(hist_tone1 == 'yinping')
-ggplotly(draw_by(f0_tri_ct_12mh_hp, 'speaker'), tooltip = c('text', 'x'))
-
-# yinshang-initial VO
-f0_tri_ct_12mh_hs <- f0_tri_ct_12mh %>% filter(hist_tone1 == 'yinshang')
-ggplotly(draw_by(f0_tri_ct_12mh_hs, 'speaker'), tooltip = c('text', 'x'))
-
-# yangshang-initial VO
-f0_tri_ct_12mh_ls <- f0_tri_ct_12mh %>% filter(hist_tone1 == 'yangshang')
-ggplotly(draw_by(f0_tri_ct_12mh_ls, 'speaker'), tooltip = c('text', 'x'))
+p_cluster(f0_tri_ct_yp, sandhi_tone)
 ```
 
-1+2VO
-```{r fig.height=8}
-unique(f0_tri_ct_12vo$hist_tone1)
+k-means
+```{r}
+# data preparation
+f0_tri_ct_yp_kmeans <- f0_tri_ct_yp %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0)
 
-# yinshang-initial VO
-f0_tri_ct_12vo_hs <- f0_tri_ct_12vo %>% filter(hist_tone1 == 'yinshang')
-ggplotly(draw_by(f0_tri_ct_12vo_hs, 'speaker'), tooltip = c('text', 'x'))
+# k-means clustering
+cluster_model <- k_means_clustering(f0_tri_ct_yp_kmeans)
+kml(cluster_model, nbClusters = 2:10) 
+kml::plot(cluster_model, 2, parTraj=parTRAJ(col="clusters"))
+kml::plot(cluster_model, 3, parTraj=parTRAJ(col="clusters"))
+kml::plot(cluster_model, 4, parTraj=parTRAJ(col="clusters"))
+kml::plot(cluster_model, 5, parTraj=parTRAJ(col="clusters"))
+plotAllCriterion(cluster_model)
 
-# yangshang-initial VO
-f0_tri_ct_12vo_ls <- f0_tri_ct_12vo %>% filter(hist_tone1 == 'yangshang')
-ggplotly(draw_by(f0_tri_ct_12vo_ls, 'speaker'), tooltip = c('text', 'x'))
+
+# get cluster results
+f0_tri_ct_yp_kmeans <- f0_tri_ct_yp_kmeans %>% 
+  mutate(cluster3 = getClusters(cluster_model, 3),
+         cluster5 = getClusters(cluster_model, 5))
+
+f0_tri_ct_yp_kmeans <- wide_to_long(f0_tri_ct_yp_kmeans) %>% 
+  mutate(syllable_no = ifelse(time < 11, '1', 
+                              ifelse(time < 21, '2', '3'))) %>% 
+  mutate(cluster3_reorder = case_when(cluster3 == 'B' ~ 'A',
+                                      cluster3 == 'C' ~ 'B',
+                                      cluster3 == 'A' ~ 'C'),
+         cluster5_reorder = case_when(cluster5 == 'C' ~ 'A',
+                                      cluster5 == 'A' ~ 'B',
+                                      cluster5 == 'D' ~ 'C',
+                                      cluster5 == 'E' ~ 'D',
+                                      cluster5 == 'B' ~ 'E'))
 ```
 
-2+1VL
-```{r fig.height=8}
-unique(f0_tri_ct_21vl$hist_tone1)
+cluster visualisation
+```{r warning=FALSE, message=FALSE}
+f0_tri_ct_yp_kmeans <- f0_tri_ct_yp_kmeans %>% 
+  mutate(cluster3_reorder = case_when(cluster3 == 'B' ~ 'A',
+                                      cluster3 == 'C' ~ 'B',
+                                      cluster3 == 'A' ~ 'C'),
+         cluster5_reorder = case_when(cluster5 == 'C' ~ 'A',
+                                      cluster5 == 'A' ~ 'B',
+                                      cluster5 == 'D' ~ 'C',
+                                      cluster5 == 'E' ~ 'D',
+                                      cluster5 == 'B' ~ 'E'))
 
-# yinping-initial VO
-f0_tri_ct_21vl_hp <- f0_tri_ct_21vl %>% filter(hist_tone1 == 'yinping')
-ggplotly(draw_by(f0_tri_ct_21vl_hp, 'speaker'), tooltip = c('text', 'x'))
+p_kmeans3 <- p_cluster(f0_tri_ct_yp_kmeans, cluster3_reorder);p_kmeans3
+p_kmeans5 <- p_cluster(f0_tri_ct_yp_kmeans, cluster5_reorder);p_kmeans5
+```
+heatmap distribution
+```{r message=FALSE, warning=FALSE}
+heatmap_df <- heatmap_data(f0_tri_ct_yp_kmeans, cluster3_reorder) 
+p_htmap3 <- compare_cluster(heatmap_df, 'cluster3_reorder'); p_htmap3
 
+heatmap_df <- heatmap_data(f0_tri_ct_yp_kmeans, cluster5_reorder) 
+p_htmap5 <- compare_cluster(heatmap_df, 'cluster5_reorder'); p_htmap5
+```
 
-# yangshang-initial VO
-f0_tri_ct_21vl_ls <- f0_tri_ct_21vl %>% filter(hist_tone1 == 'yangshang')
-ggplotly(draw_by(f0_tri_ct_21vl_ls, 'speaker'), tooltip = c('text', 'x'))
+# Distribution analysis
 
-# yangqu-initial VO
-f0_tri_ct_21vl_lq <- f0_tri_ct_21vl %>% filter(hist_tone1 == 'yangshang')
-ggplotly(draw_by(f0_tri_ct_21vl_lq, 'speaker'), tooltip = c('text', 'x'))
+dataset preparation
+```{r}
+split_datasets <- split(f0_tri_ct_yp, f0_tri_ct_yp$syntax)
+split_datasets[["1+2MH"]]
 ```
 
 
-2+1LL
-```{r fig.height=8}
-unique(f0_tri_ct_21ll$hist_tone1)
+monosyllabic tones
+```{r}
+distri_prop2(f0_tri_ct_yp, hist_tone1, sync_tone1)
+distri_prop(f0_tri_ct_yp, hist_tone1, sync_tone1, syntax)
 
-# yinping-initial VO
-f0_tri_ct_21ll_hp <- f0_tri_ct_21ll %>% filter(hist_tone1 == 'yinping')
-ggplotly(draw_by(f0_tri_ct_21ll_hp, 'speaker'), tooltip = c('text', 'x'))
+distri_prop(f0_tri_ct_yp, hist_tone2, sync_tone2, syntax)
+f0_tri_ct_yp %>%
+  filter(startsWith(hist_tone2, "yin")) %>%
+  distri_prop(hist_tone3, sync_tone2, syntax)
 
-# yinshang-initial VO
-f0_tri_ct_21ll_hs <- f0_tri_ct_21ll %>% filter(hist_tone1 == 'yinshang')
-ggplotly(draw_by(f0_tri_ct_21ll_hs, 'speaker'), tooltip = c('text', 'x'))
+distri_prop(f0_tri_ct_yp, hist_tone3, sync_tone3, syntax)
+f0_tri_ct_yp %>%
+  filter(startsWith(hist_tone3, "yin")) %>%
+  distri_prop(hist_tone3, sync_tone3, syntax)+
+  scale_x_discrete(drop = TRUE)
 
-# yangping-initial VO
-f0_tri_ct_21ll_lp <- f0_tri_ct_21ll %>% filter(hist_tone1 == 'yangping')
-ggplotly(draw_by(f0_tri_ct_21ll_lp, 'speaker'), tooltip = c('text', 'x'))
+# by each syntactic structure
+split_datasets[["1+2MH"]] %>% distri_prop2(hist_tone1, sync_tone1)
+split_datasets[["1+2MH"]] %>% 
+  filter(startsWith(hist_tone2, "yin")) %>%
+  distri_prop2(hist_tone2, sync_tone2)
+
+```
+monosyllabic tones: revised
+```{r}
+f0_tri_ct_yp %>%
+  filter(startsWith(hist_tone2, "yin")) %>%
+  distri_prop(hist_tone2, sync_tone2, syntax)
+
+f0_tri_ct_yp %>%
+  filter(startsWith(hist_tone3, "yin")) %>%
+  distri_prop(hist_tone3, sync_tone3, syntax)
 ```
 
+
+
+```{r}
+distri_prop2(f0_tri_ct_yp, hist_tone1, sandhi_tone)
+distri_prop2(f0_tri_ct_yp, syntax, sandhi_tone)
+distri_prop2(f0_tri_ct_yp, speaker, sandhi_tone)
+
+distri_prop2(f0_tri_ct_yp, hist_tone2, sandhi_tone)
+#distri_prop2(f0_tri_ct_yp, sync_tone2, sandhi_tone)
+distri_prop2(f0_tri_ct_yp, hist_tone3, sandhi_tone)
+#distri_prop2(f0_tri_ct_yp, sync_tone3, sandhi_tone)
+
+distri_prop2(f0_tri_ct_yp, sync_tone1, sandhi_tone)
+```
+```{r}
+f0_tri_ct_yp_12mh <- f0_tri_ct_yp %>% filter(syntax == "1+2MH")
+f0_tri_ct_yp_21ll <- f0_tri_ct_yp %>% filter(syntax == "2+1LL")
+f0_tri_ct_yp_21vl <- f0_tri_ct_yp %>% filter(syntax == "2+1VL")
+
+# 1+2MH
+distri_prop2(f0_tri_ct_yp_12mh, sync_tone1, sandhi_tone)
+distri_prop2(f0_tri_ct_yp_12mh, hist_tone2, sandhi_tone)
+distri_prop2(f0_tri_ct_yp_12mh, hist_tone3, sandhi_tone)
+
+distri_prop(f0_tri_ct_yp_12mh, hist_tone3, sandhi_tone, hist_tone2)
+
+
+# 2+1LL
+distri_prop2(f0_tri_ct_yp_21ll, sync_tone1, sandhi_tone)
+distri_prop(f0_tri_ct_yp_21ll, hist_tone3, sandhi_tone, hist_tone2)
+
+
+# 2+1VL
+distri_prop2(f0_tri_ct_yp_21vl, sync_tone1, sandhi_tone)
+distri_prop(f0_tri_ct_yp_21vl, hist_tone3, sandhi_tone, hist_tone2)
+```
+
+
+build model
+```{r}
+f0_tri_ct_yp <- f0_tri_ct_yp %>% 
+  mutate(sandhi_tone = as.factor(sandhi_tone),
+         sync_tone1 = as.factor(sync_tone1),
+         hist_tone2 = as.factor(hist_tone2),
+         hist_tone3 = as.factor(hist_tone3),
+         syntax = as.factor(syntax),
+         speaker = as.factor(speaker))
+
+model <- multinom(sandhi_tone ~ sync_tone1 + hist_tone2 + hist_tone3 + syntax + speaker, data = f0_tri_ct_yp)
+summary(model)
+
+model_a1 <- multinom(sandhi_tone ~ sync_tone1 + hist_tone2 + hist_tone3 + speaker*syntax, data = f0_tri_ct_yp)
+anova(model_a1, model, test = "Chisq")
+
+model_1 <- multinom(sandhi_tone ~ hist_tone2 + hist_tone3 + syntax + speaker, data = f0_tri_ct_yp)
+anova(model_1, model, test = "Chisq")
+
+model_2 <- multinom(sandhi_tone ~ sync_tone1 + hist_tone3 + syntax + speaker, data = f0_tri_ct_yp)
+anova(model_2, model, test = "Chisq")
+
+model_3 <- multinom(sandhi_tone ~ sync_tone1 + hist_tone2 + syntax + speaker, data = f0_tri_ct_yp)
+anova(model_3, model, test = "Chisq")
+
+model_4 <- multinom(sandhi_tone ~ sync_tone1 + hist_tone2 + hist_tone3 + syntax, data = f0_tri_ct_yp)
+anova(model_4, model, test = "Chisq")
+
+model_5 <- multinom(sandhi_tone ~ sync_tone1 + hist_tone2 + hist_tone3 + speaker, data = f0_tri_ct_yp)
+anova(model_5, model, test = "Chisq")
+```
+
+## yinshang-initial

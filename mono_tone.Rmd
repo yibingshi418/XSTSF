@@ -1,0 +1,45 @@
+---
+title: "mono tones"
+output: html_document
+date: "2024-07-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+```{r}
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_mono <- f0_all_ct %>% filter(is.na(diortri) == TRUE)
+
+distri_prop2(f0_mono, hist_tone1, sync_tone1)
+
+f0_mono %>% filter(hist_tone1 == 'yangshang' & sync_tone1 == 'LH') %>% select(token, speaker) %>% distinct()
+```
+```{r}
+f0_mono %>% filter(hist_tone1 == 'yangping' & sync_tone1 == 'LH') %>% select(token, speaker) %>% distinct()
+
+f0_mono %>% filter(token == '买') %>% select(token, speaker, sync_tone1) %>% distinct()
+```
+

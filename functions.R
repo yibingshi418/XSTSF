@@ -1,14 +1,17 @@
 ######### Initial inspection #########
 draw_by <- function(dataframe, x, y){
   p <- dataframe %>% 
-    ggplot(aes(x=time, y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
+    ggplot(aes(x=as.numeric(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
     geom_line()+
-    {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), ncol = 2, labeller = label_both)}
+    {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), nrow = 1, labeller = label_both)}
       else {facet_grid(as.formula(paste(y, "~", x)), labeller = label_value)}}+
+    scale_x_continuous(breaks = seq(1, 20, by = 5)) +
     theme_bw()+
     theme(panel.spacing.y = unit(0.02, "cm", data = NULL),
-          text = element_text(size = 10))+
-    ylim(-4, 4)
+          text = element_text(size = 15, family = "Times"))+
+    ylim(-4, 4)+
+    xlab('Normalised time')+
+    ylab('Normalised f0')
   
   p
 }
@@ -51,7 +54,8 @@ wide_to_long <- function(df, x) {
 # visualise cluster results
 p_cluster <- function(df, x, y = NULL){
   p_cluster <- df %>% 
-    ggplot(aes(x = time, y = norm_f0, group = interaction(ind_no, syllable_no), color = {{x}}, text = paste('ind_no: ', ind_no))) +
+    ggplot(aes(x = time, y = norm_f0, group = interaction(ind_no, syllable_no), 
+               color = {{x}}, text = paste('ind_no: ', ind_no))) +
     geom_line(alpha = 0.2) +
     scale_color_ptol() +
     stat_summary(fun = mean, geom = "line", lwd = 2.5, aes(group = interaction({{x}}, syllable_no)), lty = 1) +
@@ -59,7 +63,7 @@ p_cluster <- function(df, x, y = NULL){
     xlab("Normalised time") +
     ylab("z-scores of log-f0") + 
     labs(color = "cluster") +
-    scale_color_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
+    scale_color_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", "purple", "black", "pink"))+
     theme_minimal() +
     theme(legend.position = "right",
           text = element_text(family = 'Times New Roman', size = 20),
@@ -93,14 +97,14 @@ compare_cluster <- function(df, x){
     # scale_fill_continuous(breaks=c(0,0.5,1))+
     geom_tile()+xlab("cluster")+labs(fill="Frequency")+
     geom_text(aes(label = sprintf("%.2f", prop)),size=5, color = 'white')+
-    scale_fill_viridis()+
-    scale_color_viridis(direction = -1)+
-    scale_fill_gradient(low = "white", high = "#09005F", breaks = c(0, 0.5, 1))+
+    scale_fill_viridis(direction = -1)+
+    #scale_color_viridis(direction = -1)+
+    #scale_fill_gradient(low = "yellow", high = "green", breaks = c(0, 0.5, 1))+
     theme_minimal()+
     theme(text = element_text(family = 'Times New Roman', size = 20),
           axis.title.x = element_text(margin = margin(t = 15)),
-          axis.text.x = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
-          axis.text.y = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
+          #axis.text.x = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
+          #axis.text.y = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
           panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
     xlab('k-means cluster')+
     ylab('perceptual cluster')
@@ -147,25 +151,64 @@ distri_count <- function(df, x, y, z=NULL){
   return(p)
 }
 
-distri_prop <- function(df, x, y){
-  df1 <- df %>% filter(time == 1) %>% 
-    count({{x}}, {{y}}) %>% 
-    group_by({{x}}) %>% 
+distri_prop2 <- function(df, x, y) {
+  x <- rlang::enquo(x)
+  y <- rlang::enquo(y)
+  
+  # Group by x, y, and optionally z
+  df1 <- df %>%
+    filter(time == 1) %>%
+    group_by(!!x, !!y) %>%
+    count() %>%
+    ungroup() %>%
+    group_by(!!x) %>%
     mutate(count = sum(n),
-           prop = n/count) %>% 
+           prop = n / count) %>%
     ungroup()
   
-  p <- ggplot(df1, aes(x={{x}},y=prop, fill={{y}}, label=sprintf("%.2f", prop))) + 
-    geom_bar(position="stack", stat="identity")+
-    geom_text(size = 4, position = position_stack(vjust = 0.5))+
-    scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
-    theme_minimal()+
-    ylab('count')+
-    labs(fill = 'cluster')+
-    theme(text=element_text(size=20, family = 'Times New Roman'))
+  p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = paste0(round(prop * 100), '%\n(', n, ')'))) + 
+    geom_bar(position = "stack", stat = "identity") +
+    geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
+    scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", 'purple')) +
+    theme_minimal() +
+    labs(fill = 'sandhi category') +
+    ylab('frequency proportion') +
+    theme(text = element_text(size = 20, family = 'Times New Roman'))+ 
+    scale_y_continuous(labels = scales::percent)
   
   return(p)
 }
+
+distri_prop <- function(df, x, y, z = NULL) {
+  x <- rlang::enquo(x)
+  y <- rlang::enquo(y)
+  z <- rlang::enquo(z)
+  
+    df1 <- df %>%
+      filter(time == 1) %>%
+      group_by(!!x, !!y, !!z) %>%
+      count() %>%
+      ungroup() %>%
+      group_by(!!x, !!z) %>%
+      mutate(count = sum(n),
+             prop = n / count) %>%
+      ungroup()
+    
+    p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = paste0(round(prop * 100), '% (', n, ')'))) + 
+      geom_bar(position = "stack", stat = "identity") +
+      geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
+      scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", 'purple')) +
+      theme_classic() +
+      labs(fill = 'sandhi category') +
+      ylab('frequency proportion') +
+      theme(text = element_text(size = 20, family = 'Times New Roman'),
+            axis.text.x = element_text(angle = 45, hjust = 1)) +
+      facet_wrap(if (!is.null(z)) as.formula(paste("~", quo_name(z))) else NULL, labeller = labeller(.cols = NULL))+ 
+      scale_y_continuous(labels = scales::percent)
+    
+  return(p)
+}
+
 
 ######### Gradience visualisation #########
 std <- function(x) sd(x)/sqrt(length(x))
