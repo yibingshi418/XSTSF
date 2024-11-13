@@ -28,7 +28,7 @@ load("XSTSF_production.RData")
 source('functions.R')
 ```
 
-
+datasets
 ```{r data-construction, cache=FALSE}
 f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
   group_by(speaker) %>% 
@@ -40,20 +40,116 @@ f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>%
     time > 0 & time < 11 ~ 1,
     time > 10 & time < 21 ~ 2,
     time > 20 & time < 31 ~ 3
-  ))
+  ),
+  sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+  sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2),
+  sync_tone3 = ifelse(sync_tone3 == 'RF', 'LHL', sync_tone3))
 
 f0_tri_ct <- f0_all_ct %>% filter(diortri == 'tri' & sandhi_tone != 'outlier')  
 f0_tri_ct_yp <- f0_tri_ct %>% filter(hist_tone1 == 'yinping')
 ```
 
-## yinping-initial
+functions
+```{r}
+distri_prop <- function(df, x, y, z = NULL) {
+  x <- rlang::enquo(x)
+  y <- rlang::enquo(y)
+  z <- rlang::enquo(z)
+
+# Define a custom color palette for each sync_tone level
+  custom_palette <- c(
+    "HH" = "#4477AA",  
+    "HL" = "#CC6677",
+    "LHL" = "#DDCC77",
+    "LH" = "#117733",
+    "HHL" = "#4477AA",
+    "HLM" = "#CC6677",
+    "HML" = "#117733",
+    "MMH" = "purple"
+  )
+
+# Calculate counts
+    df1 <- df %>%
+      filter(time == 1) %>%
+      group_by(!!x, !!y, !!z) %>%
+      count() %>%
+      ungroup() %>%
+      group_by(!!x, !!z) %>%
+      mutate(count = sum(n),
+             prop = n / count) %>%
+      ungroup()
+
+# Plot data
+    p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, 
+                         label = ifelse(prop > 0.15, paste0(round(prop * 100), '%\n(', n, ')'),
+                                        paste0(round(prop * 100), '%')))) + 
+      geom_bar(position = "stack", stat = "identity") +
+      geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
+      scale_fill_manual(values = custom_palette) +
+      theme_classic() +
+      ylab('frequency proportion') +
+      theme(text = element_text(size = 20, family = 'Times New Roman'),
+            axis.text.x = element_text(angle = 45, hjust = 1)) +
+      facet_wrap(vars(!!z), scales = "free_x") +
+      scale_y_continuous(labels = scales::percent)
+    
+  return(p)
+} 
+
+
+distri_prop2 <- function(df, x, y) {
+  x <- rlang::enquo(x)
+  y <- rlang::enquo(y)
+  
+  # Define a custom color palette for each sync_tone level
+  custom_palette <- c(
+    "HH" = "#4477AA",  
+    "HL" = "#CC6677",
+    "LHL" = "#DDCC77",
+    "LH" = "#117733",
+    "HHL" = "#4477AA",
+    "HLM" = "#CC6677",
+    "HML" = "#117733",
+    "MMH" = "purple"
+  )
+  
+  # Group by x, y
+  df1 <- df %>%
+    filter(time == 1) %>%
+    group_by(!!x, !!y) %>%
+    count() %>%
+    ungroup() %>%
+    group_by(!!x) %>%
+    mutate(count = sum(n),
+           prop = n / count) %>%
+    ungroup()
+  
+  p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, 
+                       label = ifelse(prop > 0.15, paste0(round(prop * 100), '%\n(', n, ')'),
+                                        paste0(round(prop * 100), '%')))) + 
+    geom_bar(position = "stack", stat = "identity") +
+    geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
+    scale_fill_manual(values = custom_palette) +
+    theme_minimal() +
+    labs(fill = 'sandhi category') +
+    ylab('frequency proportion') +
+    theme(text = element_text(size = 20, family = 'Times New Roman'))+ 
+    scale_y_continuous(labels = scales::percent)
+  
+  return(p)
+}
+
+```
+
+
+# yinping-initial
 ```{r}
 unique(f0_tri_ct_yp$sandhi_tone)
 
 p_cluster(f0_tri_ct_yp, sandhi_tone)
 ```
 
-k-means
+## k-means clustering
 ```{r}
 # data preparation
 f0_tri_ct_yp_kmeans <- f0_tri_ct_yp %>% 
@@ -112,63 +208,42 @@ heatmap_df <- heatmap_data(f0_tri_ct_yp_kmeans, cluster5_reorder)
 p_htmap5 <- compare_cluster(heatmap_df, 'cluster5_reorder'); p_htmap5
 ```
 
-# Distribution analysis
 
-dataset preparation
-```{r}
-split_datasets <- split(f0_tri_ct_yp, f0_tri_ct_yp$syntax)
-split_datasets[["1+2MH"]]
-```
 
+## Distribution analysis
 
 monosyllabic tones
 ```{r}
-distri_prop2(f0_tri_ct_yp, hist_tone1, sync_tone1)
-distri_prop(f0_tri_ct_yp, hist_tone1, sync_tone1, syntax)
-
-distri_prop(f0_tri_ct_yp, hist_tone2, sync_tone2, syntax)
+f0_tri_ct_yp %>%
+  distri_prop(hist_tone1, sync_tone1, syntax)+
+  xlab("historical tone")+
+  labs(fill = "synchronic tone")
+  
 f0_tri_ct_yp %>%
   filter(startsWith(hist_tone2, "yin")) %>%
-  distri_prop(hist_tone3, sync_tone2, syntax)
+  distri_prop(hist_tone2, sync_tone2, syntax)+
+  xlab("historical tone")+
+  labs(fill = "synchronic tone")
 
-distri_prop(f0_tri_ct_yp, hist_tone3, sync_tone3, syntax)
 f0_tri_ct_yp %>%
   filter(startsWith(hist_tone3, "yin")) %>%
   distri_prop(hist_tone3, sync_tone3, syntax)+
-  scale_x_discrete(drop = TRUE)
-
-# by each syntactic structure
-split_datasets[["1+2MH"]] %>% distri_prop2(hist_tone1, sync_tone1)
-split_datasets[["1+2MH"]] %>% 
-  filter(startsWith(hist_tone2, "yin")) %>%
-  distri_prop2(hist_tone2, sync_tone2)
-
-```
-monosyllabic tones: revised
-```{r}
-f0_tri_ct_yp %>%
-  filter(startsWith(hist_tone2, "yin")) %>%
-  distri_prop(hist_tone2, sync_tone2, syntax)
+  xlab("historical tone")+
+  labs(fill = "synchronic tone")
 
 f0_tri_ct_yp %>%
-  filter(startsWith(hist_tone3, "yin")) %>%
-  distri_prop(hist_tone3, sync_tone3, syntax)
+  filter(startsWith(hist_tone2, "yang")) %>%
+  distri_prop(hist_tone2, sync_tone2, syntax)+
+  xlab("historical tone")+
+  labs(fill = "synchronic tone")
+
+f0_tri_ct_yp %>%
+  filter(startsWith(hist_tone3, "yang")) %>%
+  distri_prop(hist_tone3, sync_tone3, syntax)+
+  xlab("historical tone")+
+  labs(fill = "synchronic tone")
 ```
-
-
-
-```{r}
-distri_prop2(f0_tri_ct_yp, hist_tone1, sandhi_tone)
-distri_prop2(f0_tri_ct_yp, syntax, sandhi_tone)
-distri_prop2(f0_tri_ct_yp, speaker, sandhi_tone)
-
-distri_prop2(f0_tri_ct_yp, hist_tone2, sandhi_tone)
-#distri_prop2(f0_tri_ct_yp, sync_tone2, sandhi_tone)
-distri_prop2(f0_tri_ct_yp, hist_tone3, sandhi_tone)
-#distri_prop2(f0_tri_ct_yp, sync_tone3, sandhi_tone)
-
-distri_prop2(f0_tri_ct_yp, sync_tone1, sandhi_tone)
-```
+trisyllabic sandhi patterns
 ```{r}
 f0_tri_ct_yp_12mh <- f0_tri_ct_yp %>% filter(syntax == "1+2MH")
 f0_tri_ct_yp_21ll <- f0_tri_ct_yp %>% filter(syntax == "2+1LL")
@@ -176,10 +251,12 @@ f0_tri_ct_yp_21vl <- f0_tri_ct_yp %>% filter(syntax == "2+1VL")
 
 # 1+2MH
 distri_prop2(f0_tri_ct_yp_12mh, sync_tone1, sandhi_tone)
-distri_prop2(f0_tri_ct_yp_12mh, hist_tone2, sandhi_tone)
-distri_prop2(f0_tri_ct_yp_12mh, hist_tone3, sandhi_tone)
+#distri_prop2(f0_tri_ct_yp_12mh, hist_tone2, sandhi_tone)
+#distri_prop2(f0_tri_ct_yp_12mh, hist_tone3, sandhi_tone)
 
-distri_prop(f0_tri_ct_yp_12mh, hist_tone3, sandhi_tone, hist_tone2)
+f0_tri_ct_yp_12mh %>% 
+ #filter(sync_tone1 == 'HL') %>% 
+  distri_prop(hist_tone3, sandhi_tone, hist_tone2)
 
 
 # 2+1LL
@@ -188,7 +265,7 @@ distri_prop(f0_tri_ct_yp_21ll, hist_tone3, sandhi_tone, hist_tone2)
 
 
 # 2+1VL
-distri_prop2(f0_tri_ct_yp_21vl, sync_tone1, sandhi_tone)
+#distri_prop2(f0_tri_ct_yp_21vl, sync_tone1, sandhi_tone)
 distri_prop(f0_tri_ct_yp_21vl, hist_tone3, sandhi_tone, hist_tone2)
 ```
 
