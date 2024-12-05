@@ -77,6 +77,36 @@ p_cluster <- function(df, x, y = NULL){
   return(p_cluster)
 }
 
+p_cluster_cont <- function(df, x, y = NULL){
+
+  df <- df %>%
+    mutate(time_scaled = ifelse(diortri == "di", as.numeric(time) / 20, as.numeric(time) / 30))
+  
+  p_cluster <- df %>% 
+    ggplot(aes(x = time_scaled, y = norm_f0, 
+               group = interaction(diortri, ind_no, syllable_no), 
+               color = {{x}})) +
+    geom_line(alpha = 0.2) +
+    scale_color_ptol() +
+    stat_summary(fun = mean, 
+                 geom = "line", lwd = 2.5,lty = 1,
+                 aes(group = interaction({{x}}, syllable_no))) +
+    ylim(-4, 4)+
+    xlab("Normalised time") +
+    ylab("z-scores of log-f0") + 
+    labs(color = "sandhi pattern") +
+    theme(legend.position = "right",
+          text = element_text(family = 'Times New Roman', size = 20),
+          axis.title.x = element_text(margin = margin(t = 10)),
+          axis.title.y = element_text(margin = margin(r = 20)))
+  
+  if (!is.null(y)) {
+    p_cluster <- p_cluster + facet_wrap(as.formula(paste("~", y)), nrow = 1, labeller = label_value)
+  }
+  
+  return(p_cluster)
+}
+  
 
 # compare k-means and human inspection cluster results
 heatmap_data <- function(df, x){

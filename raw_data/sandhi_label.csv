@@ -515,7 +515,7 @@ S3,樱桃籽,tri,ct,,HH_RF_HH,MMH,,9,S3_9_ct,HH,RF,HH,yinping,yangping,yinshang,
 S3,草莓籽,tri,ct,,HH_RF_HH,LHL,,10,S3_10_ct,HH,RF,HH,yinshang,yangping,yinshang,2+1LL
 S3,黄瓜籽,tri,ct,,RF_HH_HH,LLH,,11,S3_11_ct,RF,HH,HH,yangping,yinping,yinshang,2+1LL
 S3,小杨梅,tri,ct,,HH_RF_LH,LHL,,12,S3_12_ct,HH,RF,LH,yinshang,yangping,yangping,1+2MH
-S3,老樱桃,tri,ct,,RF_HH_RF,outlier,,13,S3_13_ct,RF,HH,RF,yangshang,yinping,yangping,1+2MH
+S3,老樱桃,tri,ct,,RF_HH_RF,outlier,creak,13,S3_13_ct,RF,HH,RF,yangshang,yinping,yangping,1+2MH
 S3,新皮鞋,tri,ct,,HL_RF_RF,MMH,,14,S3_14_ct,HL,RF,RF,yinping,yangping,yangping,1+2MH
 S3,采杨梅,tri,ct,,HH_RF_LH,HLM,,15,S3_15_ct,HH,RF,LH,yinshang,yangping,yangping,1+2VO
 S3,老黄瓜,tri,ct,,RF_RF_HH,LHL,,16,S3_16_ct,RF,RF,HH,yangshang,yangping,yinping,1+2MH
@@ -534,7 +534,7 @@ S3,造船厂,tri,ct,,RF_RF_HH,HML,,28,S3_28_ct,RF,RF,HH,yangqu,yangping,yinshang
 S3,小青椒,tri,ct,,HH_HH_HH,LHL,,29,S3_29_ct,HH,HH,HH,yinshang,yinping,yinping,1+2MH
 S3,杨梅籽,tri,ct,,RF_LH_HH,LLH,,30,S3_30_ct,RF,LH,HH,yangping,yangping,yinshang,2+1LL
 S3,苦瓜皮,tri,ct,,HH_HH_RF,LHL,,31,S3_31_ct,HH,HH,RF,yinshang,yinping,yangping,2+1LL
-S3,买杨梅,tri,ct,,LH_RF_LH,outlier,,32,S3_32_ct,LH,RF,LH,yangshang,yangping,yangping,1+2VO
+S3,买杨梅,tri,ct,,LH_RF_LH,outlier,diff,32,S3_32_ct,LH,RF,LH,yangshang,yangping,yangping,1+2VO
 S3,采樱花,tri,ct,,HH_HH_HH,MMH,,33,S3_33_ct,HH,HH,HH,yinshang,yinping,yinping,1+2VO
 S3,小苦瓜,tri,ct,,HH_HH_HH,LHL,,34,S3_34_ct,HH,HH,HH,yinshang,yinshang,yinping,1+2MH
 S3,新手机,tri,ct,,HL_HH_HH,HML,,35,S3_35_ct,HL,HH,HH,yinping,yinshang,yinping,1+2MH
@@ -578,7 +578,7 @@ S4,造船厂,tri,ct,,RF_RF_HH,LLLHHL,,28,S4_28_ct,RF,RF,HH,yangqu,yangping,yinsh
 S4,小青椒,tri,ct,,HH_HL_HL,LHL,,29,S4_29_ct,HH,HL,HL,yinshang,yinping,yinping,1+2MH
 S4,杨梅籽,tri,ct,,RF_RF_HH,LLH,,30,S4_30_ct,RF,RF,HH,yangping,yangping,yinshang,2+1LL
 S4,苦瓜皮,tri,ct,,HH_HL_RF,LHL,,31,S4_31_ct,HH,HL,RF,yinshang,yinping,yangping,2+1LL
-S4,买杨梅,tri,ct,,RF_RF_RF,outlier,,32,S4_32_ct,RF,RF,RF,yangshang,yangping,yangping,1+2VO
+S4,买杨梅,tri,ct,,RF_RF_RF,outlier,diff,32,S4_32_ct,RF,RF,RF,yangshang,yangping,yangping,1+2VO
 S4,采樱花,tri,ct,,HH_HH_HH,LHL,,33,S4_33_ct,HH,HH,HH,yinshang,yinping,yinping,1+2VO
 S4,小苦瓜,tri,ct,,HH_HH_HL,LHL,,34,S4_34_ct,HH,HH,HL,yinshang,yinshang,yinping,1+2MH
 S4,新手机,tri,ct,,HH_HH_HH,HML,,35,S4_35_ct,HH,HH,HH,yinping,yinshang,yinping,1+2MH
@@ -632,7 +632,7 @@ S5,青椒籽,tri,ct,,HL_HL_HH,MMH,,38,S5_38_ct,HL,HL,HH,yinping,yinping,yinshang
 S5,小水牛,tri,ct,,HH_HH_RF,LHL,,39,S5_39_ct,HH,HH,RF,yinshang,yinshang,yangping,1+2MH
 S5,采樱桃,tri,ct,,HH_HH_RF,HLM,,40,S5_40_ct,HH,HH,RF,yinshang,yinping,yangping,1+2VO
 S5,买茶人,tri,ct,,RF_RF_RF,LHL,,41,S5_41_ct,RF,RF,RF,yangshang,yangping,yangping,2+1VL
-S5,新书包,tri,ct,,HH_HL_HH,outlier,,42,S5_42_ct,HH,HL,HH,yinping,yinping,yinping,1+2MH
+S5,新书包,tri,ct,,HH_HL_HH,MMH,,42,S5_42_ct,HH,HL,HH,yinping,yinping,yinping,1+2MH
 S5,开锁人,tri,ct,,HH_HH_RF,HHL,,43,S5_43_ct,HH,HH,RF,yinping,yinshang,yangping,2+1VL
 S5,青椒皮,tri,ct,,HL_HL_RF,HLM,,44,S5_44_ct,HL,HL,RF,yinping,yinping,yangping,2+1LL
 S6,小黄瓜,tri,ct,,HH_RF_HH,MMM,,1,S6_1_ct,HH,RF,HH,yinshang,yangping,yinping,1+2MH
@@ -681,11 +681,11 @@ S6,开锁人,tri,ct,,HH_HH_RF,HLM,,43,S6_43_ct,HH,HH,RF,yinping,yinshang,yangpin
 S6,青椒皮,tri,ct,,HH_HH_RF,HLM,,44,S6_44_ct,HH,HH,RF,yinping,yinping,yangping,2+1LL
 S7,小黄瓜,tri,ct,,HH_RF_HH,LHL,,1,S7_1_ct,HH,RF,HH,yinshang,yangping,yinping,1+2MH
 S7,采梅花,tri,ct,,HL_RF_HH,HLM,,3,S7_3_ct,HL,RF,HH,yinshang,yangping,yinping,1+2VO
-S7,新皮袄,tri,ct,,HL_RF_HH,outlier,,5,S7_5_ct,HL,RF,HH,yinping,yangping,yinshang,1+2MH
+S7,新皮袄,tri,ct,,HL_RF_HH,HLM,,5,S7_5_ct,HL,RF,HH,yinping,yangping,yinshang,1+2MH
 S7,造纸厂,tri,ct,,RF_HH_HH,LLLHHL,,6,S7_6_ct,RF,HH,HH,yangqu,yinshang,yinshang,2+1VL
 S7,老杨梅,tri,ct,,RF_RF_RF,LMH,,8,S7_8_ct,RF,RF,RF,yangshang,yangping,yangping,1+2MH
-S7,樱桃籽,tri,ct,,HH_RF_HH,outlier,,9,S7_9_ct,HH,RF,HH,yinping,yangping,yinshang,2+1LL
-S7,草莓籽,tri,ct,,HH_RF_HH,outlier,,10,S7_10_ct,HH,RF,HH,yinshang,yangping,yinshang,2+1LL
+S7,樱桃籽,tri,ct,,HH_RF_HH,HLM,,9,S7_9_ct,HH,RF,HH,yinping,yangping,yinshang,2+1LL
+S7,草莓籽,tri,ct,,HH_RF_HH,LHL,,10,S7_10_ct,HH,RF,HH,yinshang,yangping,yinshang,2+1LL
 S7,黄瓜籽,tri,ct,,RF_HH_HH,LLH,LLLLHH,11,S7_11_ct,RF,HH,HH,yangping,yinping,yinshang,2+1LL
 S7,小杨梅,tri,ct,,HH_RF_RF,LHL,,12,S7_12_ct,HH,RF,RF,yinshang,yangping,yangping,1+2MH
 S7,老樱桃,tri,ct,,RF_HH_RF,LMH,,13,S7_13_ct,RF,HH,RF,yangshang,yinping,yangping,1+2MH
@@ -697,10 +697,10 @@ S7,买黄瓜,tri,ct,,RF_RF_HH,LLH,,18,S7_18_ct,RF,RF,HH,yangshang,yangping,yinpi
 S7,新书房,tri,ct,,HL_HH_RF,HLM,,19,S7_19_ct,HL,HH,RF,yinping,yinping,yangping,1+2MH
 S7,黄瓜皮,tri,ct,,RF_HH_RF,LLH,,20,S7_20_ct,RF,HH,RF,yangping,yinping,yangping,2+1LL
 S7,买花人,tri,ct,,RF_HH_RF,LMH,,22,S7_22_ct,RF,HH,RF,yangshang,yinping,yangping,2+1VL
-S7,樱桃皮,tri,ct,,HH_RF_RF,outlier,,23,S7_23_ct,HH,RF,RF,yinping,yangping,yangping,2+1LL
+S7,樱桃皮,tri,ct,,HH_RF_RF,HLM,,23,S7_23_ct,HH,RF,RF,yinping,yangping,yangping,2+1LL
 S7,买樱桃,tri,ct,,RF_HH_RF,LLH,,24,S7_24_ct,RF,HH,RF,yangshang,yinping,yangping,1+2VO
 S7,杨桃皮,tri,ct,,RF_RF_RF,LLH,,26,S7_26_ct,RF,RF,RF,yangping,yangping,yangping,2+1LL
-S7,新手链,tri,ct,,HL_HH_RF,outlier,,27,S7_27_ct,HL,HH,RF,yinping,yinshang,yangqu,1+2MH
+S7,新手链,tri,ct,,HL_HH_RF,HLM,,27,S7_27_ct,HL,HH,RF,yinping,yinshang,yangqu,1+2MH
 S7,造船厂,tri,ct,,RF_RF_HH,LLLHHH,,28,S7_28_ct,RF,RF,HH,yangqu,yangping,yinshang,2+1VL
 S7,小青椒,tri,ct,,HH_HH_HH,LHL,,29,S7_29_ct,HH,HH,HH,yinshang,yinping,yinping,1+2MH
 S7,杨梅籽,tri,ct,,RF_RF_HH,LLH,LLLLHH,30,S7_30_ct,RF,RF,HH,yangping,yangping,yinshang,2+1LL
@@ -708,7 +708,7 @@ S7,苦瓜皮,tri,ct,,HH_HH_RF,LHL,,31,S7_31_ct,HH,HH,RF,yinshang,yinping,yangpin
 S7,买杨梅,tri,ct,,RF_RF_RF,LLH,,32,S7_32_ct,RF,RF,RF,yangshang,yangping,yangping,1+2VO
 S7,采樱花,tri,ct,,HL_HH_HH,HLM,,33,S7_33_ct,HL,HH,HH,yinshang,yinping,yinping,1+2VO
 S7,小苦瓜,tri,ct,,HH_HH_HH,LHL,,34,S7_34_ct,HH,HH,HH,yinshang,yinshang,yinping,1+2MH
-S7,新手机,tri,ct,,HL_HH_HH,outlier,,35,S7_35_ct,HL,HH,HH,yinping,yinshang,yinping,1+2MH
+S7,新手机,tri,ct,,HL_HH_HH,HLM,,35,S7_35_ct,HL,HH,HH,yinping,yinshang,yinping,1+2MH
 S7,修车工,tri,ct,,HH_HH_HH,HLM,,36,S7_36_ct,HH,HH,HH,yinping,yinping,yinping,2+1VL
 S7,小樱桃,tri,ct,,HH_HH_RF,LHL,,37,S7_37_ct,HH,HH,RF,yinshang,yinping,yangping,1+2MH
 S7,青椒籽,tri,ct,,HH_HH_HH,HLM,,38,S7_38_ct,HH,HH,HH,yinping,yinping,yinshang,2+1LL
@@ -719,9 +719,9 @@ S7,老青椒,tri,ct,,RF_HH_HH,LHL,,2,S7_2_ct,RF,HH,HH,yangshang,yinping,yinping,
 S7,买青椒,tri,ct,,RF_HH_HH,LLH,,4,S7_4_ct,RF,HH,HH,yangshang,yinping,yinping,1+2VO
 S7,水牛毛,tri,ct,,HH_RF_RF,LHL,,25,S7_25_ct,HH,RF,RF,yinshang,yangping,yangping,2+1LL
 S7,小水牛,tri,ct,,HH_HH_RF,LHL,,39,S7_39_ct,HH,HH,RF,yinshang,yinshang,yangping,1+2MH
-S7,开门人,tri,ct,,HH_RF_RF,outlier,,21,S7_21_ct,HH,RF,RF,yinping,yangping,yangping,2+1VL
+S7,开门人,tri,ct,,HH_RF_RF,HLM,,21,S7_21_ct,HH,RF,RF,yinping,yangping,yangping,2+1VL
 S7,买茶人,tri,ct,,RF_RF_RF,LHL,,41,S7_41_ct,RF,RF,RF,yangshang,yangping,yangping,2+1VL
-S7,开锁人,tri,ct,,HH_HH_RF,outlier,,43,S7_43_ct,HH,HH,RF,yinping,yinshang,yangping,2+1VL
+S7,开锁人,tri,ct,,HH_HH_RF,HLM,,43,S7_43_ct,HH,HH,RF,yinping,yinshang,yangping,2+1VL
 S7,修门工,tri,ct,,HH_RF_HH,HLM,,7,S7_7_ct,HH,RF,HH,yinping,yangping,yinping,2+1VL
 S8,小黄瓜,tri,ct,,HL_RF_HH,LHL,,1,S8_1_ct,HL,RF,HH,yinshang,yangping,yinping,1+2MH
 S8,老青椒,tri,ct,,RF_HL_HH,LHL,,2,S8_2_ct,RF,HL,HH,yangshang,yinping,yinping,1+2MH
@@ -742,7 +742,7 @@ S8,老黄瓜,tri,ct,,RF_RF_HH,LHL,,16,S8_16_ct,RF,RF,HH,yangshang,yangping,yinpi
 S8,苦瓜籽,tri,ct,,HH_HH_HH,LHL,,17,S8_17_ct,HH,HH,HH,yinshang,yinping,yinshang,2+1LL
 S8,买黄瓜,tri,ct,,LH_RF_HH,LLH,,18,S8_18_ct,LH,RF,HH,yangshang,yangping,yinping,1+2VO
 S8,新书房,tri,ct,,HL_HH_RF,HLM,,19,S8_19_ct,HL,HH,RF,yinping,yinping,yangping,1+2MH
-S8,黄瓜皮,tri,ct,,RF_HH_RF,outlier,,20,S8_20_ct,RF,HH,RF,yangping,yinping,yangping,2+1LL
+S8,黄瓜皮,tri,ct,,RF_HH_RF,outlier,diff,20,S8_20_ct,RF,HH,RF,yangping,yinping,yangping,2+1LL
 S8,开门人,tri,ct,,HH_RF_RF,LHL,,21,S8_21_ct,HH,RF,RF,yinping,yangping,yangping,2+1VL
 S8,买花人,tri,ct,,LH_HH_RF,LHL,,22,S8_22_ct,LH,HH,RF,yangshang,yinping,yangping,2+1VL
 S8,樱桃皮,tri,ct,,HL_RF_RF,HML,,23,S8_23_ct,HL,RF,RF,yinping,yangping,yangping,2+1LL
