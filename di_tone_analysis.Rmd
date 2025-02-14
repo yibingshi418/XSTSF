@@ -1,0 +1,63 @@
+---
+title: "Disyllabic tone sandhi in Lexical Compounds (LC) & Modifier-Head Phrases (MH) in Xiangshan"
+output: html_document
+Author: 'Yibing Shi'
+date: "Last updated: 2024-05-28"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+```
+
+# Data preparations  
+```{r}
+load("/Users/shiyibing/Desktop/PhD/XSTSF/XSTSF_production.RData")
+source('/Users/shiyibing/Desktop/PhD/XSTSF/functions.R')
+```
+
+```{r}
+# normalisation of f0 across all citation tokens
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+# extract all disyllabic LC & MH
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLHL' ~ 'LLRF', 
+                                 .default = sandhi_tone)) %>% 
+  # remove outliers
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+
+# subset H- and L-initial datasets
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1)) 
+```
+
+
+# H-initial dataset
+
+## Auditory categorisation  
+
+```{r out.width='100%', message=FALSE, warning=FALSE}
+unique(f0_di_ct_lcmh_h$sandhi_tone) # check the categories
+
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone)
+```
+
+
+

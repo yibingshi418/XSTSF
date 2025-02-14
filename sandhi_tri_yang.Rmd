@@ -1,0 +1,510 @@
+---
+title: "sandhi_tri_yang"
+author: "Yibing Shi"
+date: "2024-12-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggtext)
+library(grid)
+library(plotly)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+datasets
+```{r, cache=FALSE}
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup() %>% 
+  mutate(
+    time = as.numeric(time),
+    syllable_no = case_when(
+    time > 0 & time < 11 ~ 1,
+    time > 10 & time < 21 ~ 2,
+    time > 20 & time < 31 ~ 3
+  ),
+  sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+  sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2),
+  sync_tone3 = ifelse(sync_tone3 == 'RF', 'LHL', sync_tone3))
+
+tone2_colors  <- c("Ia" = "#E07B91", "Ib" = "#8E735B", "IIa" = "#6B8E66")
+
+f0_tri_ct <- f0_all_ct %>% 
+  filter(diortri == 'tri' & sandhi_tone != 'outlier')  %>% 
+  mutate(sync_tone23 = paste0(sync_tone2, '_', sync_tone3),
+         hist_tone23 = paste0(hist_tone2, '_', hist_tone3),
+         hist_tone23_mapped = gsub("yinping", "Ia", 
+                         gsub("yangping", "Ib", 
+                         gsub("yinshang", "IIa", 
+                         gsub("yangshang", "IIb", 
+                         gsub("yinqu", "IIIa", 
+                         gsub("yangqu", "IIIb", hist_tone23)))))),
+         all_tone = paste(sync_tone1, hist_tone23_mapped, sep = "_"),
+         tone2_mapped = str_split_fixed(hist_tone23_mapped, "_", 2)[, 1],
+         tone23_colored = paste0("<span style='color:", 
+                                tone2_colors[f0_tri_ct$tone2_mapped], ";'>",
+                                f0_tri_ct$tone2_mapped,  "</span>_<span>", 
+                                str_split_fixed(f0_tri_ct$hist_tone23_mapped, "_", 2)[, 2],
+                                "</span>"),
+         sandhi_tone = ifelse(sandhi_tone == 'HHL', 'MML', 
+                              ifelse(sandhi_tone == 'LHL', 'MHL', sandhi_tone)))
+  
+f0_tri_ct_yp <- f0_tri_ct %>% filter(hist_tone1 == 'yinping') 
+f0_tri_ct_yap <- f0_tri_ct %>% filter(hist_tone1 == 'yangping')
+f0_tri_ct_ys <- f0_tri_ct %>% 
+  filter(hist_tone1 == 'yinshang' & ! ind_no %in% c('S6_3_ct', 'S7_3_ct')) 
+f0_tri_ct_yas <- f0_tri_ct %>% filter(hist_tone1 == 'yangshang')
+```
+
+## monosyllabic tones
+```{r message=FALSE,warning=FALSE}
+p1 <- f0_tri_ct_yas %>%
+  distri_prop(hist_tone1, sync_tone1, syntax)+
+  theme(axis.text.x = element_blank())+
+  theme(plot.margin = margin(b = 20),
+        legend.title = element_blank())+
+  scale_fill_manual(values = c('#C77CFF', '#7CAE00'))+
+  labs(fill = "synchronic tone",
+       title = 'σ1 (yangshang)');p1
+
+p2 <- f0_tri_ct_yas %>%
+  filter(startsWith(hist_tone2, "Ya")) %>%
+  distri_prop(hist_tone2, sync_tone2, syntax)+
+   theme(axis.text.x = element_blank())+
+  theme(plot.margin = margin(b = 20),
+        legend.title = element_blank())+
+  scale_fill_manual(values = c( '#7CAE00'))+
+  labs(fill = "synchronic tone",
+       title = 'σ2 (Low-register)');p2
+  
+p3 <- f0_tri_ct_yas %>%
+  filter(startsWith(hist_tone2, "Yi")) %>%
+  distri_prop(hist_tone2, sync_tone2, syntax)+
+  theme(axis.text.x = element_blank())+
+  theme(plot.margin = margin(b = 20),
+        legend.title = element_blank())+
+  labs(fill = "synchronic tone",
+       title = 'σ2 (High-register)');p3
+
+p4 <- f0_tri_ct_yas %>%
+  filter(startsWith(hist_tone3, "Ya")) %>%
+  distri_prop(hist_tone3, sync_tone3, syntax)+
+  theme(axis.text.x = element_blank())+
+  theme(plot.margin = margin(b = 20),
+        legend.title = element_blank())+
+  scale_fill_manual(values = c('#C77CFF', '#7CAE00'))+
+  labs(fill = "synchronic tone",
+       title = 'σ3 (Low-register)');p4
+
+p5 <- f0_tri_ct_yas %>%
+  filter(startsWith(hist_tone3, "Yi")) %>%
+  distri_prop(hist_tone3, sync_tone3, syntax)+
+  theme(axis.text.x = element_blank())+
+  theme(plot.margin = margin(b = 20),
+        legend.title = element_blank())+
+  labs(fill = "synchronic tone",
+       title = 'σ3 (High-register)');p5
+```
+
+combination
+```{r warning=FALSE}
+p <- ggarrange(
+  ggarrange(p1 + rremove("ylab") + rremove("xlab"), NULL, 
+            ncol = 2, widths = c(1, 1), 
+            labels = c('A', ''),
+            font.label = list(size = 25, family = "Times")),
+  ggarrange(p2 + rremove("ylab") + rremove("xlab"), 
+            p3 + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1, 1), 
+            labels = c('B-1', 'B-2'),
+            font.label = list(size = 25, family = "Times")),
+  ggarrange(p4 + rremove("ylab") + rremove("xlab"), 
+            p5 + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1, 1), 
+            labels = c('C-1', 'C-2'),
+            font.label = list(size = 25, family = "Times")),
+  nrow = 3, align = "v", heights = c(1.2, 1.2, 1.2),
+  common.legend = TRUE, legend = "top"
+); p
+
+
+p_annotated <- annotate_figure(
+  p,
+  bottom = text_grob("Historical tonal category", size = 20, family = "Times")
+); p_annotated
+     
+
+ggsave(filename = file.path(plot_dir, "yash_mono.jpeg"),width = 10, height = 12)
+```
+
+
+# Sandhi categorisation
+
+Auditory categorisation
+```{r message=FALSE, warning=FALSE}
+unique(f0_tri_ct_yas$sandhi_tone)
+
+p_human <-p_cluster(f0_tri_ct_yas, sandhi_tone)+
+  scale_color_manual(values = c("#DDCC77", "#CC6677", "#9B72C7"))+
+  theme(legend.position = 'top',
+        legend.title = element_blank());p_human
+```
+
+*k*-means clustering
+```{r}
+# data preparation
+f0_tri_ct_yas_kmeans <- f0_tri_ct_yas %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0)
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_tri_ct_yas_kmeans)
+kml(cluster_model, nbClusters = 2:10) 
+plotAllCriterion(cluster_model)
+kml::plot(cluster_model, 3, parTraj=parTRAJ(col="clusters"))
+
+
+# get cluster results
+f0_tri_ct_yas_kmeans <- f0_tri_ct_yas_kmeans %>% 
+  mutate(cluster3 = getClusters(cluster_model, 3))
+
+f0_tri_ct_yas_kmeans <- wide_to_long(f0_tri_ct_yas_kmeans) %>% 
+  mutate(syllable_no = ifelse(time < 11, '1', 
+                              ifelse(time < 21, '2', '3'))) 
+```
+
+
+*k*-means cluster visualisation
+```{r warning=FALSE, message=FALSE}
+f0_tri_ct_yas_kmeans <- f0_tri_ct_yas_kmeans%>% 
+  mutate(cluster3_reorder = case_when(cluster3 == 'B' ~ 'A',
+                                      cluster3 == 'A' ~ 'B',
+                                      cluster3 == 'C' ~ 'C'))
+
+p_kmeans3 <- p_cluster(f0_tri_ct_yas_kmeans, cluster3)+
+  scale_color_manual(values = c("#DDCC77", "#CC6677", "#9B72C7"))+
+  theme(legend.position = 'top',
+        legend.title = element_blank());p_kmeans3
+```
+
+heatmap distribution
+```{r message=FALSE, warning=FALSE}
+heatmap_df <- heatmap_data(f0_tri_ct_yas_kmeans, cluster3) 
+p_htmap3 <- compare_cluster(heatmap_df, 'cluster3'); p_htmap3
+```
+
+combination
+
+```{r warning=FALSE}
+p <- ggarrange(
+  p_human+ labs(title = 'Perceptual clusters'), 
+  p_kmeans3+ rremove("ylab") +labs(title = 'k-means clusters \n(k=3)'), 
+  p_htmap3 + rremove("ylab") + rremove("xlab")+labs(title = 'Perceptual vs. K-means \n(k=3)'),
+  nrow = 1, heights = c(1, 1, 1),
+  labels = c('A', 'B', 'C'),
+  font.label = list(size = 25, family = "Times",hjust = -1),
+  align = "hv",
+  legend = "bottom" 
+);p
+
+
+ggsave(filename = file.path(plot_dir, "yash_clusters.jpeg"),width = 12, height = 4)
+```
+
+
+# Comparisons with disyllabic sandhi
+
+plotting sandhi patterns
+```{r message=FALSE, warning=FALSE}
+# yinshang-initial disyllabic dataset
+f0_di_ct_yas <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di' & hist_tone1 == 'yangshang') %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+
+unique(f0_di_ct_yas$sandhi_tone) # check sandhi categories
+
+# plotting
+p_di <- p_cluster_cont(f0_di_ct_yas, sandhi_tone)+
+  theme(legend.title = element_blank())+
+  scale_color_manual(values = c( "#9B72C7", "#DDCC77"))+
+  labs(title = 'Disyllabic sandhi');p_di
+p_tri <- p_cluster_cont(f0_tri_ct_yas, sandhi_tone)+
+  theme(legend.title = element_blank())+
+  scale_color_manual(values = c("#DDCC77", "#CC6677", "#9B72C7"))+
+  labs(title = 'Trisyllabic sandhi');p_tri
+
+# check individual contours
+# ggplotly(draw_by(f0_di_ct_lcmh_h, 'sandhi_tone'), tooltip = c('text', 'x'))
+```
+
+
+direct comparions between di & tri sandhi
+```{r message=FALSE, warning=FALSE}
+unique(f0_tri_ct_yas$sandhi_tone)
+
+f0_tri_yas_comp <- f0_tri_ct_yas %>% 
+  select(-sync_tone23, -hist_tone23, -hist_tone23_mapped, -tone2_mapped, -tone23_colored, -all_tone) %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'LHL' ~ 'Rise-fall',
+                                     sandhi_tone == 'LMH' ~ 'L-to-H Level',
+                                     .default = sandhi_tone),
+         sandhi_tone = paste0('tri: ', sandhi_tone))
+
+# direct comparisons of similar sandhi contours
+f0_di_yas_comp <- f0_di_ct_yas %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'LLHH' ~ 'L-to-H Level',
+                                     sandhi_tone == 'LLHL' ~ 'Rise-fall',
+                                     .default = 'Rise'),
+         sandhi_tone = paste0('di: ', sandhi_tone))
+
+f0_yas_comp <- rbind(f0_tri_yas_comp %>% 
+                      filter(sandhi_tone %in% c('tri: LMH', 'tri: LHL')),
+                    f0_di_yas_comp) %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, 
+                              levels = c('di: LLHH', 'tri: LMH',
+                                'di: LLHL', 'tri: LHL')))
+  
+p_comp <- p_cluster_cont(f0_yas_comp, sandhi_tone, 'sandhi_category')+
+  theme(legend.title = element_blank(),
+        legend.position = 'bottom')+
+  scale_color_manual(values = c("#CC99CC", "#9B72C7", "#DDCC77", "#AA9944"))+
+  labs(title = 'Comparisons of di- and tri-syllabic sandhi');p_comp
+
+unique(f0_di_ct_yas$sandhi_tone)
+```
+
+overall distribution comparison
+```{r message=FALSE, warning=FALSE}
+f0_yas_comp1 <- rbind(f0_tri_yas_comp,f0_di_yas_comp) %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, 
+                              levels = c('di: LLHL', 'tri: MHL', 
+                                         'di: LLHH', 'tri: LMH')),
+         sandhi_category = factor(sandhi_category,
+                                  levels = c('Rise-fall', 'L-to-H Level',
+                                             'LLH')),
+         diortri = ifelse(diortri == 'di', 'disyllable', 'trisyllable'))
+
+p_dist <-distri_prop2(f0_yas_comp1, diortri, sandhi_category)+
+  theme(legend.title = element_blank())+
+  scale_fill_manual(values = c( "#DDCC77", "#9B72C7", "#CC6677"))+
+  labs(title = "Distribution of sandhi categories")+
+  xlab("");p_dist
+```
+combination of plots
+```{r warning=FALSE}
+p <- ggarrange(
+  ggarrange(p_di+ rremove("xlab"), 
+            p_tri + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1, 1),
+            labels = c('A', 'B'),
+            font.label = list(size = 25, family = "Times")),
+  ggarrange(p_comp + rremove("xlab"), 
+            p_dist + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1.5, 1),
+            labels = c('C', 'D'),
+            font.label = list(size = 25, family = "Times")),
+  nrow = 2, align = "v", heights = c(1.2, 1.2, 1.2)
+  #common.legend = TRUE, legend = "top"
+); p
+
+ggsave(filename = file.path(plot_dir, "yash_di_comp.jpeg"),width = 10, height = 8)
+```
+
+## Distribution analysis
+
+distributions
+```{r}
+f0_tri_ct_yas <- f0_tri_ct_yas %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('LHL', 'LMH', 'LLH')))
+
+# by syntax
+p_syntax <- f0_tri_ct_yas %>% distri_prop2(syntax, sandhi_tone)+
+  scale_fill_manual(values = c("#DDCC77","#9B72C7", "#CC6677"))+
+  labs(title = "Distribution by syntax");p_syntax
+
+# by syntax & tone 1
+p_syntax_tone1 <- f0_tri_ct_yas %>% distri_prop(sync_tone1, sandhi_tone, syntax,
+                             label_format = "paste0(round(prop * 100), '%')")+
+  scale_fill_manual(values = c("#4477AA", "#117733", "#DDCC77", "#CC6677"))+
+  theme(legend.title = element_blank())+
+  labs(title = "Distribution by syntax and σ1 tone", 
+       x = "initial tone")+
+  geom_text(aes(x = sync_tone1, y = 1.05, label = count),
+              size = 5, family = 'Times New Roman', inherit.aes = FALSE)+
+  annotate("text", x = -Inf, y = 1.08, label = "n =",
+             hjust = -0.1, vjust = 0, size = 5,  family = "Times New Roman");p_syntax_tone1
+
+# by syntax & tones  
+p_syntax_tone <- f0_tri_ct_yas %>% distri_prop(hist_tone23_mapped, sandhi_tone, syntax,
+                             label_format = "paste0(round(prop * 100), '%')")+
+  scale_fill_manual(values = c("#DDCC77","#9B72C7", "#CC6677"))+
+  labs(title = "Distribution by syntax and σ2_σ3 tones", 
+       x = "second tone_third tone")+
+  scale_x_discrete(labels = setNames(f0_tri_ct_yas$tone23_colored,
+                                     f0_tri_ct_yas$hist_tone23_mapped)) +
+  theme(axis.text.x = element_markdown(angle = 45, hjust = 1))+
+  geom_text(aes(x = hist_tone23_mapped, y = 1.05, label = count),
+              size = 5, family = 'Times New Roman', inherit.aes = FALSE)+
+  annotate("text", x = -Inf, y = 1.08, label = "n =",
+             hjust = -0.1, vjust = 0, size = 5,  family = "Times New Roman");p_syntax_tone
+
+p <- ggarrange(ggarrange(p_syntax, p_syntax_tone1,
+                         widths = c(1, 2),
+                         labels = c('A', 'B'),
+                         font.label = list(size = 25, family = "Times")), 
+            p_syntax_tone+ rremove("ylab"),
+            nrow = 2,
+            labels = c('', 'C'),
+            font.label = list(size = 25, family = "Times"));p
+ 
+ ggsave(filename = file.path(plot_dir, "yash_syntax.jpeg"),width = 10, height = 9)
+```
+
+
+```{r}
+# by speaker
+p_di_speaker <- f0_yas_comp1 %>% 
+  filter(diortri == 'trisyllable') %>% 
+  distri_prop2(speaker, sandhi_category, label_format = "paste0(round(prop * 100), '%')")+
+  scale_fill_manual(values = c( "#DDCC77","#9B72C7", "#CC6677"))+
+  labs(title = "Distribution by speaker in trisyllables");p_di_speaker
+
+p_tri_speaker <- f0_yas_comp1 %>% 
+  filter(diortri == 'disyllable') %>% 
+  distri_prop2(speaker, sandhi_category, label_format = "paste0(round(prop * 100), '%')")+
+  scale_fill_manual(values = c("#DDCC77","#9B72C7", "#CC6677"))+
+  labs(title = "Distribution by speaker in disyllables");p_tri_speaker
+
+p <- ggarrange(p_di_speaker, 
+            p_tri_speaker , 
+            widths = c(1, 1),
+            labels = c('A', 'B'),
+            font.label = list(size = 25, family = "Times"),
+            common.legend = TRUE,
+            legend = 'right');p
+
+ggsave(filename = file.path(plot_dir, "yash_speaker.jpeg"),width = 10, height = 4.5)
+```
+
+
+```{r}
+p_sub_cluster(f0_tri_ct_yas, syntax, sandhi_tone)
+```
+
+
+# yangping-initial
+
+```{r}
+p_cluster(f0_tri_ct_yap, sandhi_tone)+
+  scale_color_manual(values = c("#CC6677"))
+ggsave(filename = file.path(plot_dir, "yapi_clusters.jpeg"),width = 6, height = 4)
+```
+
+```{r message=FALSE, warning=FALSE}
+# yangping-initial disyllabic dataset
+f0_di_ct_yap <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di' & hist_tone1 == 'yangping') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLRF' ~ 'LLHL', 
+                                 sandhi_tone == 'LLLM' ~ 'LLLH',
+                                 sandhi_tone == 'LMML' ~ 'LHML',
+                                 .default = sandhi_tone)) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct',
+                        'S2_44_ct', 'S3_37_ct', 'S3_44_ct', 'S6_16_ct', 'S6_31_ct', 'S6_39_ct', 'S7_33_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+
+unique(f0_di_ct_yap$sandhi_tone) # check sandhi categories
+
+# plotting
+p_di <- p_cluster_cont(f0_di_ct_yap, sandhi_tone)+
+  theme(legend.title = element_blank())+
+  labs(title = 'Disyllabic sandhi');p_di
+p_tri <- p_cluster_cont(f0_tri_ct_yap, sandhi_tone)+
+  theme(legend.title = element_blank())+
+  scale_color_manual(values = c("#CC6677"))+
+  labs(title = 'Trisyllabic sandhi'); p_tri
+
+unique(f0_tri_ct_yap$hist_tone2)
+
+# check individual contours
+# ggplotly(draw_by(f0_di_ct_lcmh_h, 'sandhi_tone'), tooltip = c('text', 'x'))
+```
+
+
+direct comparions between di & tri sandhi
+```{r message=FALSE, warning=FALSE}
+unique(f0_di_ct_yap$sandhi_tone)
+
+f0_tri_yap_comp <- f0_tri_ct_yap %>% 
+  select(-sync_tone23, -hist_tone23, -hist_tone23_mapped, -tone2_mapped, -tone23_colored, -all_tone) %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'LLH' ~ 'Rise',
+                                     .default = sandhi_tone),
+         sandhi_tone = paste0('tri: ', sandhi_tone))
+
+# direct comparisons of similar sandhi contours
+f0_di_yap_comp <- f0_di_ct_yap %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'LLLH' ~ 'Rise',
+                                     .default = sandhi_tone),
+         sandhi_tone = paste0('di: ', sandhi_tone))
+
+f0_yap_comp <- rbind(f0_tri_yap_comp %>% filter(sandhi_tone %in% c('tri: LLH')),
+                    f0_di_yap_comp %>% filter(sandhi_tone %in% c('di: LLLH'))) %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, 
+                              levels = c('di: LLLH', 'tri: LLH')))
+  
+p_comp <- p_cluster_cont(f0_yap_comp, sandhi_tone, 'sandhi_category')+
+   theme(legend.title = element_blank())+
+  scale_color_manual(values = c("#CC6677", "#882255"))+
+  labs(title = 'Comparisons of di- and tri-syllabic sandhi');p_comp
+```
+
+
+overall distribution comparison
+```{r message=FALSE, warning=FALSE}
+f0_yap_comp1 <- rbind(f0_tri_yap_comp,f0_di_yap_comp) %>% 
+  mutate(sandhi_tone = factor(sandhi_tone, 
+                              levels = c('di: LLLH', 'tri: LLH')),
+         sandhi_category = factor(sandhi_category,
+                                  levels = c('Rise', 'LLHH', 'LHML', 'LLHL')),
+         diortri = ifelse(diortri == 'di', 'disyllable', 'trisyllable'))
+
+p_dist <- distri_prop2(f0_yap_comp1, diortri, sandhi_category,
+             label_format = "paste0(round(prop * 100), '% (', n, ')')")+
+   theme(legend.title = element_blank())+
+  scale_fill_manual(values = c( "#CC6677", "#117733", "#4477AA","#DDCC77", "#66CCEE"))+
+  labs(title = "Distribution of sandhi categories")+
+  xlab("");p_dist 
+```
+
+
+combination of plots
+```{r warning=FALSE}
+p <- ggarrange(
+  ggarrange(p_di+ rremove("xlab"), 
+            p_tri + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1, 1),
+            labels = c('A', 'B'),
+            font.label = list(size = 25, family = "Times")),
+  ggarrange(p_comp + rremove("xlab"), 
+            p_dist + rremove("ylab") + rremove("xlab"), 
+            ncol = 2, widths = c(1.5, 1),
+            labels = c('C', 'D'),
+            font.label = list(size = 25, family = "Times")),
+  nrow = 2, align = "v", heights = c(1.2, 1.2, 1.2)
+  #common.legend = TRUE, legend = "top"
+); p
+
+ggsave(filename = file.path(plot_dir, "yapi_di_comp.jpeg"),width = 10, height = 8)
+```

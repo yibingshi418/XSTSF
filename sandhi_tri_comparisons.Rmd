@@ -1,0 +1,227 @@
+---
+title: "sandhi_tri_comparisons"
+author: "Yibing Shi"
+date: "2025-01-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggtext)
+library(grid)
+library(plotly)
+library(kml)
+library(ggthemes)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+```{r}
+# paths
+current_dir <- getwd()
+plot_dir <- file.path(current_dir, "plots")
+```
+
+
+datasets
+```{r, cache=FALSE}
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup() %>% 
+  mutate(
+    time = as.numeric(time),
+    syllable_no = case_when(
+    time > 0 & time < 11 ~ 1,
+    time > 10 & time < 21 ~ 2,
+    time > 20 & time < 31 ~ 3
+  ),
+  sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+  sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2),
+  sync_tone3 = ifelse(sync_tone3 == 'RF', 'LHL', sync_tone3))
+
+tone2_colors  <- c("Ia" = "#E07B91", "Ib" = "#8E735B", "IIa" = "#6B8E66")
+
+f0_tri_ct <- f0_all_ct %>% 
+  filter(diortri == 'tri' & sandhi_tone != 'outlier' & !hist_tone1 %in% c('yinqu', 'yangqu'))  %>% 
+  mutate(sync_tone23 = paste0(sync_tone2, '_', sync_tone3),
+         hist_tone23 = paste0(hist_tone2, '_', hist_tone3),
+         hist_tone23_mapped = gsub("yinping", "Ia", 
+                         gsub("yangping", "Ib", 
+                         gsub("yinshang", "IIa", 
+                         gsub("yangshang", "IIb", 
+                         gsub("yinqu", "IIIa", 
+                         gsub("yangqu", "IIIb", hist_tone23)))))),
+         all_tone = paste(sync_tone1, hist_tone23_mapped, sep = "_"),
+         tone2_mapped = str_split_fixed(hist_tone23_mapped, "_", 2)[, 1])
+         
+f0_tri_ct <- f0_tri_ct %>% 
+    mutate(tone23_colored = paste0("<span style='color:", 
+                                tone2_colors[f0_tri_ct$tone2_mapped], ";'>",
+                                f0_tri_ct$tone2_mapped,  "</span>_<span>", 
+                                str_split_fixed(f0_tri_ct$hist_tone23_mapped, "_", 2)[, 2],
+                                "</span>"),
+         sandhi_tone = ifelse(sandhi_tone == 'HHL', 'MML', 
+                              ifelse(sandhi_tone == 'LHL' & grepl("^yin", hist_tone1), 
+                                     'MHL', sandhi_tone)))
+  
+f0_tri_ct_yp <- f0_tri_ct %>% filter(hist_tone1 == 'yinping') 
+f0_tri_ct_yap <- f0_tri_ct %>% filter(hist_tone1 == 'yangping')
+f0_tri_ct_ys <- f0_tri_ct %>% filter(hist_tone1 == 'yinshang')
+f0_tri_ct_yas <- f0_tri_ct %>% filter(hist_tone1 == 'yangshang')
+```
+
+
+```{r}
+# VP-related trisyllables
+unique(f0_tri_ct$sandhi_tone)
+
+f0_tri_vp_related <- f0_tri_ct %>% 
+  select(-sync_tone23, -hist_tone23, -hist_tone23_mapped, 
+         -tone2_mapped, -tone23_colored, -all_tone) %>% 
+  filter(sandhi_tone %in% c('HLM', 'MMH', 'LLH', 'LHL', 'HML', 'MHL', 'MML')) %>% 
+  mutate(sandhi_tone = ifelse(sandhi_tone %in% c('HML', 'MML') & syntax == '2+1VL', 
+                              'MHL', sandhi_tone)) %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'HLM' ~ 'Fall',
+                                     sandhi_tone == 'MMH' ~ 'Rise',
+                                     sandhi_tone == 'LLH' ~ 'Rise',
+                                     sandhi_tone == 'LHL' ~ 'Rise-Fall',
+                                     .default = sandhi_tone),
+         syntax1 = case_when(syntax == '1+2VO' ~ 'VP trisyllables',
+                             .default = 'NP trisyllables')) 
+  
+unique(f0_tri_vp_related$sandhi_tone)
+unique(f0_tri_vp_related$syntax1)
+```
+
+```{r}
+f0_di_np_ct <- f0_all_ct %>% filter(syntax %in% c('L', 'M') & diortri == 'di')
+unique(f0_di_np_ct$sandhi_tone)
+
+# VP-related disyllables
+f0_di_vp_related <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di'&
+           sandhi_tone %in% c('HMML', 'MMMH', 'LLLM', 'LLHL', 'MHHL','HMML')) %>% 
+  mutate(sandhi_category = case_when(sandhi_tone == 'HMML' ~ 'Fall',
+                                 sandhi_tone == 'MMMH' ~ 'Rise',
+                                 sandhi_tone == 'LLLM' ~ 'Rise',
+                                 sandhi_tone == 'LLHL' ~ 'Rise-Fall',
+                                 sandhi_tone == 'MHHL' ~ 'Rise-Fall',
+                                 sandhi_tone == 'HMML' ~ 'Fall',
+                                 .default = sandhi_tone),
+         syntax1 = 'NP disyllables') %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 
+                        'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) 
+
+unique(f0_di_vp_related$sandhi_tone)
+```
+
+# VPs
+
+```{r}
+# Rise and Fall
+f0_yin_fall_rise <- rbind(f0_tri_vp_related %>% 
+                        filter(sandhi_tone %in% c('HLM', 'MMH')), 
+                      f0_di_vp_related %>% 
+                        filter(sandhi_tone %in% c('HMML', 'MMMH'))) 
+
+unique(f0_yin_fall_rise$sandhi_tone)
+unique(f0_yin_fall_rise$sandhi_category)
+
+# plotting
+p_cluster_cont(f0_yin_fall_rise, syntax1, 'sandhi_category')
+ggsave(filename = file.path(plot_dir, "vp_yinping.jpeg"),width = 9, height = 4.5)
+```
+
+
+
+```{r}
+# Rise
+f0_yang_rise <- rbind(f0_tri_vp_related %>% 
+                        filter(sandhi_tone %in% c('LLH')), 
+                      f0_di_vp_related %>% 
+                        filter(sandhi_tone %in% c('LLLM'))) 
+
+unique(f0_yang_rise$sandhi_tone)
+unique(f0_yang_rise$sandhi_category)
+
+p_cluster_cont(f0_yang_rise, syntax1, 'sandhi_category')
+ggsave(filename = file.path(plot_dir, "vp_yangshang.jpeg"),width = 9, height = 4.5)
+```
+
+
+# Residuals
+
+```{r}
+# 1+2MH: HML
+f0_hml <- rbind(f0_tri_vp_related %>% 
+  filter(sandhi_tone == 'HML' & syntax %in% c('1+2MH')),
+  f0_di_vp_related %>% filter(sandhi_tone %in% c('HMML', 'MHHL') & 
+                                hist_tone1 == 'yinshang')) %>% 
+  mutate(syntax1 = case_when(syntax %in% c('L', 'M') ~ 'disyllabic MHHL',
+                             .default = 'trisyllabic HML'))
+
+# HML in NPs: second syllable
+f0_np_hml <- f0_hml %>% filter(sandhi_tone != 'HMML')
+
+p_cluster_cont(f0_np_hml, syntax1, delay_di = TRUE)
+ggsave(filename = file.path(plot_dir, "np_hml.jpeg"),width = 8, height = 4)
+```
+
+```{r}
+f0_di_vp <- f0_all_ct %>% filter(syntax =='V' & diortri == 'di'& 
+                         sandhi_tone == 'MHHL'& hist_tone2 == 'yangping') %>% 
+    mutate(sandhi_category = sandhi_tone, syntax1 = syntax)
+
+# 2+1VL: MHL
+f0_mhl <- rbind(f0_tri_vp_related %>% 
+  filter(sandhi_tone == 'MHL' & syntax %in% c('2+1VL')),
+  f0_di_vp_related %>% filter(sandhi_tone == 'MHHL'),
+  f0_di_vp) %>% 
+  mutate(syntax1 = case_when(syntax %in% c('V') ~ 'disyllabic VP MHHL',
+                             syntax %in% c('L', 'M') ~ 'disyllabic NP MHHL',
+                             .default = 'trisyllabic MHL'))
+
+
+## comparison with second syllable
+f0_np_mhl1 <- f0_mhl %>% filter(!syntax %in% c('L', 'M')) 
+
+p1 <- p_cluster_cont(f0_np_mhl1, syntax1, advance_di = TRUE); p1
+p2 <- p_cluster_cont(f0_np_mhl1, syntax1, rescale_second = TRUE); p2
+ggarrange(p1, p2,
+          common.legend = TRUE, legend = "top",
+          labels = c('A', 'B'), font.label = list(size = 30, family = 'Times New Roman'))
+ggsave(filename = file.path(plot_dir, "np_mhl.jpeg"),width = 12, height = 5)
+
+
+## comparison with di NP
+f0_np_mhl2 <- f0_mhl %>% filter(syntax == '2+1VL' | (syntax %in% c('L', 'M') & hist_tone1 == 'yinshang')) 
+p3 <- p_cluster_cont(f0_np_mhl2, syntax1); p3
+ggsave(filename = file.path(plot_dir, "np_mhl2.jpeg"),width = 8, height = 4)
+```
+
+```{r}
+f0_di_vp <- f0_all_ct %>% filter(syntax =='V' & diortri == 'di'& 
+                         sandhi_tone %in% c('MHHL')) %>% 
+    mutate(sandhi_category = sandhi_tone, syntax1 = syntax)
+
+# 2+1VL: HHL & MML
+f0_hhl <- rbind(f0_tri_vp_related %>% 
+  filter(sandhi_tone %in% c('MHL') & syntax %in% c('1+2VO')),
+  f0_di_vp)
+
+p_cluster_cont(f0_hhl, sandhi_tone, rescale_second = TRUE)
+
+
+t <- f0_tri_vp_related %>% filter(syntax %in% c('1+2VO'))
+unique(t$sandhi_tone)
+```
+

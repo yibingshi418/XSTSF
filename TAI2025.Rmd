@@ -1,0 +1,133 @@
+---
+title: "TAI2025"
+author: "Yibing Shi"
+date: "2024-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(ggthemes)
+```
+
+Datasets
+```{r}
+# paths
+current_dir <- getwd()
+plot_dir <- file.path(current_dir, "plots")
+
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+```{r}
+# all citation tokens
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+# disyllabic lc & mh
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'Fall (HHML)',
+                                 sandhi_tone == 'HMML' ~ 'Fall (HHML)',
+                                 sandhi_tone == 'MMMH' ~ 'Rise (MMMH)',
+                                 sandhi_tone == 'HHHH' ~ 'Level (HHHH)',
+                                 sandhi_tone == 'MHHL' ~ 'Rise-fall (MHHL)',
+                                 sandhi_tone == 'LLRF' ~ 'Rise-fall (LLHL)', 
+                                 sandhi_tone == 'LLHL' ~ 'Rise-fall (LLHL)', 
+                                 sandhi_tone == 'LLLM' ~ 'Rise (LLLH)',
+                                 sandhi_tone == 'LMML' ~ 'Fall (LHML)',
+                                 sandhi_tone == 'LLHH' ~ 'Level (LLHH)',
+                                 .default = sandhi_tone)) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 
+                        'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+
+# H-register
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% 
+  filter( grepl('^H', sync_tone1)) %>% 
+  mutate(sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+         sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2)) %>% 
+  mutate(sync_tone1 = factor(sync_tone1, levels = c('HH', 'HL', 'LH', 'LHL')),
+         sync_tone2 = factor(sync_tone2, levels = c('HH', 'HL', 'LH', 'LHL'))) %>% 
+  mutate(hist_tone1 = factor(hist_tone1, levels = c('yinping', 'yinshang')),
+         hist_tone2 = factor(hist_tone2, levels = c('yinping', 'yinqu', 'yangping', 'yangqu'))) %>%
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('Fall (HHML)', 
+                                                      'Rise (MMMH)', 
+                                                      'Rise-fall (MHHL)', 
+                                                      'Level (HHHH)')))
+
+f0_di_ct_lcmh_yp <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinping')
+f0_di_ct_lcmh_ys <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinshang')
+
+# L-register
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% 
+  filter( grepl('^[LR]', sync_tone1)) %>% 
+  mutate(sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+         sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2)) %>% 
+  mutate(sync_tone1 = factor(sync_tone1, levels = c('HH', 'HL', 'LH', 'LHL')),
+         sync_tone2 = factor(sync_tone2, levels = c('HH', 'HL', 'LH', 'LHL'))) %>% 
+  mutate(hist_tone1 = factor(hist_tone1, levels = c('yangping', 'yangshang')),
+         hist_tone2 = factor(hist_tone2, levels = c('yinping', 'yinshang', 'yinqu', 'yangping', 'yangqu'))) %>%
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('Fall (LHML)', 
+                                                      'Rise (LLLH)', 
+                                                      'Rise-fall (LLHL)', 
+                                                      'Level (LLHH)')))
+
+f0_di_ct_lcmh_yap <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangping')
+```
+
+Plots
+```{r message=FALSE, warning=FALSE}
+# H-register
+p_cluster_h <- p_cluster(f0_di_ct_lcmh_h, sandhi_tone)+
+  labs(title = "H-register-initial disyllabic tone sandhi")+ 
+  theme(legend.position = "none");p_cluster_h
+
+# Distribution
+p_distri_h <- distri_prop2(f0_di_ct_lcmh_h, hist_tone1, sandhi_tone)+
+  labs(title = 'Distribution of sandhi by initial tones',
+       x = ''); p_distri_h
+
+p_h <- ggarrange(p_cluster_h+theme(plot.margin = margin(5, 20, 5, 5)), 
+                 p_distri_h+theme(plot.margin = margin(5, 5, 5, 20)), 
+          ncol = 2, nrow = 1,
+          common.legend = TRUE, legend = "right",
+          align = "hv"); p_h
+
+ggsave(filename = file.path(plot_dir, "tai_h.jpeg"),width = 14, height = 4, dpi = 300)
+```
+
+```{r message=FALSE, warning=FALSE}
+# L-register
+p_cluster_l <- p_cluster(f0_di_ct_lcmh_l, sandhi_tone)+
+  labs(title = "L-register-initial disyllabic tone sandhi");p_cluster_l
+
+# Distribution
+p_distri_l <- distri_prop2(f0_di_ct_lcmh_l, hist_tone1, sandhi_tone)+
+  labs(title = 'Distribution of sandhi by initial tones',
+       x = ''); p_distri_l
+
+p_l <- ggarrange(p_cluster_l+theme(plot.margin = margin(5, 20, 5, 5)), 
+                 p_distri_l+theme(plot.margin = margin(5, 5, 5, 20)), 
+          ncol = 2, nrow = 1,
+          common.legend = TRUE, legend = "right",
+          align = "hv"); p_l
+
+ggsave(filename = file.path(plot_dir, "tai_l.jpeg"),width = 14, height = 4, dpi = 300)
+
+distri_prop2(f0_di_ct_lcmh_yap, sync_tone2, sandhi_tone,
+             label_format = "paste0(round(prop * 100), '%\n(', n, ')')")+
+  labs(title = 'yangping-initial sandhi by second tones',
+       x = '')
+
+ggsave(filename = file.path(plot_dir, "tai_yap.jpeg"),width = 6, height = 4, dpi = 300)
+```
+
+

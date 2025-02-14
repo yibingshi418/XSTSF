@@ -1,0 +1,214 @@
+---
+title: "mono tones"
+output: html_document
+date: "2024-07-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+```
+
+# Data preparations  
+```{r data-construction, cache=FALSE}
+# paths
+current_dir <- getwd()
+plot_dir <- file.path(current_dir, "plots")
+```
+
+
+```{r data-construction, cache=FALSE}
+# load data & functions
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+```{r}
+# load processed f0 data 
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+# get f0 data for monosyllables only
+f0_mono <- f0_all_ct %>% 
+  filter(is.na(diortri) == TRUE) %>% 
+  filter(!(speaker == "S6" & citation_tone %in% c("HL", "RF"))) %>% 
+  mutate(citation_tone = ifelse(citation_tone == 'RF', 'LHL', citation_tone)) %>% 
+  mutate(hist_tone1 = factor(hist_tone1,
+                             levels = c('yinping', 'yinshang', 'yinqu',
+                                        'yangping', 'yangshang', 'yangqu')))
+
+# import duration data
+```
+
+
+historical vs. synchronic tones
+```{r}
+distri_prop2(f0_mono, sync_tone1, hist_tone1)
+distri_prop2(f0_mono, hist_tone1, sync_tone1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+# Categorisation
+
+A function to plot f0 contours
+```{r}
+p_cluster <- function(df_cluster, x, y = NULL,  avg_line_width = 2.5){
+  p_cluster <- df_cluster %>% 
+    ggplot(aes(x = time, y = norm_f0, group = ind_no, color = {{x}}, 
+               text = paste('speaker: ', speaker, 
+                            '\ntoken_no: ', citation_no, 
+                            '\ntoken: ', token, 
+                            '\ntime: ', time, 
+                            '\nnorm_f0: ', norm_f0))) +
+    geom_line(alpha = 0.2) +
+    scale_color_ptol() +
+    stat_summary(fun = mean, geom = "line", lwd = avg_line_width, aes(group = {{x}}), lty = 1) +
+    xlab("Normalised time") +
+    ylab("z-scores of log-f0") + 
+    labs(color = "tone") +
+    scale_color_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
+    theme_minimal() +
+    theme(legend.position = "top",
+          text = element_text(family = 'Times New Roman', size = 20),
+          axis.title.x = element_text(margin = margin(t = 10)),
+          axis.title.y = element_text(margin = margin(r = 20)))
+  
+  if (!is.null(y)) {
+    p_cluster <- p_cluster + facet_wrap(as.formula(paste("~", y)), ncol = 4, labeller = label_both)
+  }
+  
+  return(p_cluster)
+}
+```
+
+Auditory clusters
+```{r}
+p_cluster(f0_mono, citation_tone, avg_line_width = 2)
+ggsave(filename = file.path(plot_dir, "mono_all.jpeg"),width = 8, height = 6)
+```
+
+*k*-means clustering
+
+functions
+```{r}
+# compare k-means and human inspection cluster results
+heatmap_data <- function(df, x){
+  heatmap_df <- df %>% filter(time == 1) %>% 
+    group_by(citation_tone, {{x}}) %>% 
+    count() %>% 
+    ungroup() %>% 
+    group_by(citation_tone) %>% 
+    mutate(count = sum(n),
+           prop = n/count) %>% 
+    ungroup()
+
+  return(heatmap_df)
+}
+
+compare_cluster <- function(df, x){
+  heatmap_plot<-ggplot(df,aes_string(x=x,y='citation_tone',fill='prop'))+
+    # scale_fill_continuous(breaks=c(0,0.5,1))+
+    geom_tile()+xlab("cluster")+labs(fill="Frequency")+
+    geom_text(aes(label = sprintf("%.2f", prop)),size=5, color = 'white')+
+    scale_fill_viridis(direction = -1)+
+    #scale_color_viridis(direction = -1)+
+    #scale_fill_gradient(low = "yellow", high = "green", breaks = c(0, 0.5, 1))+
+    theme_minimal()+
+    theme(text = element_text(family = 'Times New Roman', size = 20),
+          axis.title.x = element_text(margin = margin(t = 15)),
+          #axis.text.x = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
+          #axis.text.y = element_text(color = c("#4477AA", "#CC6677", "#DDCC77", "#117733"), face = "bold"),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+    xlab('k-means cluster')+
+    ylab('perceptual cluster')
+  
+  return(heatmap_plot)
+}
+
+```
+
+
+k-means clustering
+```{r}
+# data preparation
+f0_mono_kmeans <- f0_mono %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0)
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_mono_kmeans)
+kml(cluster_model, nbClusters = 2:10) 
+plotAllCriterion(cluster_model)
+kml::plot(cluster_model, 4, parTraj=parTRAJ(col="clusters"))
+
+
+# get cluster results
+f0_mono_kmeans <- f0_mono_kmeans %>% 
+  mutate(cluster4 = getClusters(cluster_model, 4))
+
+f0_mono_kmeans <- wide_to_long(f0_mono_kmeans) 
+```
+
+
+*k*-means cluster visualisation
+```{r warning=FALSE, message=FALSE}
+p_kmeans4 <- p_cluster(f0_mono_kmeans, cluster4);p_kmeans4
+```
+
+heatmap distribution
+```{r message=FALSE, warning=FALSE}
+heatmap_df <- heatmap_data(f0_mono_kmeans, cluster4) 
+p_htmap4 <- compare_cluster(heatmap_df, 'cluster4'); p_htmap4
+```
+
+
+# Visualisation of tones
+
+The plot below shows the numbers of tokens collected for each tone. 
+```{r}
+f0_mono_count_all <- f0_mono %>% 
+  group_by(citation_tone) %>% 
+  count() %>% 
+  mutate(n = n/10) 
+f0_mono_count_all
+
+f0_mono %>% 
+  group_by(citation_tone, speaker) %>% 
+  count() %>% 
+  mutate(n = n/10) %>% 
+  ggplot(aes(x = citation_tone, y = n, fill = speaker))+
+  geom_bar(stat="identity", position=position_dodge())+
+  geom_text(aes(label=n), vjust=1.6, color="black",
+            position = position_dodge(0.9), size=3.5)+
+  scale_fill_brewer(palette="Paired")
+```
+
+
+by speaker
+```{r}
+p_cluster(f0_mono, citation_tone, 'speaker',  avg_line_width = 1.5)
+#ggplotly(p_cluster(f0_mono, citation_tone, 'speaker',  avg_line_width = 1.5), tooltip = c('text', 'x'))
+```
+
+```{r}
+f0_mono %>% filter(speaker == "S7" & citation_tone == "HL") %>% select(ind_no) %>% distinct()
+```
+
+
+
+# Duration
+
+

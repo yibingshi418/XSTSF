@@ -1,0 +1,187 @@
+---
+title: "[XSTSF] Data processing"
+author: Yibing Shi
+date: "Last updated: 2024-04-07"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(readxl)
+library(dplyr)
+library(plyr)
+library(tidyr)
+library(tidyverse)
+library(rlang)
+library(openxlsx)
+```
+
+## Functions
+```{r}
+# Assign synchronic and historical tonal categories
+transform_tone <- function(sync_tone, hist_tone) {
+  tone_hist <- case_when(
+    grepl("^H", sync_tone) ~ "yin",
+    TRUE ~ "yang"
+  )
+  
+  tone_hist <- case_when(
+    hist_tone == "p" ~ paste0(tone_hist, "ping"),
+    hist_tone == "s" ~ paste0(tone_hist, "shang"),
+    hist_tone == "q" ~ paste0(tone_hist, "qu"),
+    TRUE ~ NA_character_
+  )
+  return(tone_hist)
+}
+
+# Clean label data
+recursive_left_join <- function(df) {
+  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
+  join_count <- switch(merge_con, mono = 1, di = 2, tri = 3) # determine the upper limit of the loop
+  merged_df <- df
+  
+  for (i in 1:join_count) {
+    by_con <-  paste0('mono_no_', as.character(i))
+    
+    by <- if (i == 1) {
+      join_by({{ by_con }} == token_no) # no speaker info at the beginning
+    } else {
+      join_by(speaker, {{ by_con }} == token_no)
+    }
+    
+    merged_df <- left_join(merged_df, label_mono_ct[, -1], by = by) %>% 
+      rename_with(~paste0('sync_tone', i), sync_tone) %>% 
+      rename_with(~paste0('hist_tone', i), hist_tone)
+  }
+  
+  merged_df <- merged_df %>% unite(citation_tone, matches('^sync_tone'), remove=FALSE)
+  
+  return(merged_df)
+}
+
+# Merge labels and raw data
+data_merge <- function(df) {
+  # get the df for merging according to the name of the input df
+  merge_con <- sub('^[^_]+_([^_]+)_.*$', '\\1', deparse(substitute(df)))
+  df_merge <- get(paste('label', merge_con, 'ct', sep = '_'))
+  
+  # select relevant columns
+  selected_cols <- intersect(c('token', 'syntax', 'token_no', 'speaker', 'citation_tone', 'sync_tone', 'sync_tone1', 'sync_tone2', 'sync_tone3', 'hist_tone', 'hist_tone1', 'hist_tone2', 'hist_tone3'), colnames(df_merge))
+  
+  # prepare time values
+  time_values <- list(mono = rep(1:10, times = nrow(df) / 10),
+                      di = rep(1:20, times = nrow(df) / 20),
+                      tri = rep(1:30, times = nrow(df) / 30))
+  
+  # merge data frames
+  merged_df <- left_join(df, select(df_merge, all_of(selected_cols)), by = c('token_no', 'speaker')) %>% 
+    mutate(time = time_values[[merge_con]]) %>% 
+    dplyr::rename(citation_no = token_no)
+  
+  return(merged_df)
+}
+```
+
+
+## Import raw f0 data and labels 
+```{r import-data-f0, message=FALSE, warning=FALSE}
+# data labels 
+label_mono_ct <- read_excel('raw_data/labels.xlsx', sheet = 'mono')
+label_di_ct <- read_excel('raw_data/labels.xlsx', sheet = 'citation.di')
+label_tri_ct <- read_excel('raw_data/labels.xlsx', sheet = 'citation.tri')
+label_focus <- read_excel('raw_data/labels.xlsx', sheet = 'focus')
+
+# f0 data for mono-/di-/tri-syllables under citation (ct) or focus conditions
+f0_mono_raw <- read_excel('raw_data/mono_f0_all_2.xlsx')
+f0_di_ct_raw <- read_excel('raw_data/f0_ct.xlsx', sheet = 'di')
+f0_tri_ct_raw <- read_excel('raw_data/f0_ct.xlsx', sheet = 'tri')
+f0_focus_raw <- read_excel('raw_data/f0_focus.xlsx')
+```
+
+## Data cleaning  
+Clean labels
+```{r clean-label-f0, message=FALSE, warning=FALSE}
+# monosyllabic labels
+label_mono_ct <- label_mono_ct %>%
+  pivot_longer(cols = starts_with('S'),
+               names_to = 'speaker',
+               values_to = 'sync_tone') %>%
+  mutate(token_no = as.numeric(token_no),
+         sync_tone = ifelse(sync_tone == 'HM', 'HL', ifelse(sync_tone == 'LM', 'LH', sync_tone)),
+         hist_tone = transform_tone(sync_tone, hist_tone))
+
+# di- & tri-syllables labels
+label_di_ct <- recursive_left_join(label_di_ct)
+label_tri_ct <- label_tri_ct %>%
+  pivot_wider(names_from = syllable_no, values_from = mono_no) %>%
+  dplyr::rename(mono_no_1 = '1', mono_no_2 = '2', mono_no_3 = '3')
+label_tri_ct <- recursive_left_join(label_tri_ct)
+```
+
+
+Clean raw data
+```{r clean-data-f0}
+# citation data
+f0_mono_pre <- data_merge(f0_mono_raw) %>% 
+  dplyr::rename(sync_tone1 = sync_tone,
+                hist_tone1 = hist_tone) %>% 
+  mutate(citation_tone = sync_tone1)
+f0_di_ct_pre <- data_merge(f0_di_ct_raw) %>% mutate(diortri = 'di')
+f0_tri_ct_pre <- data_merge(f0_tri_ct_raw) %>% mutate(diortri = 'tri')
+
+f0_tri_ct_pre %>% filter(token == '樱桃皮' & speaker == "S1")
+
+# focus data
+f0_focus_pre <- f0_focus_raw %>% left_join(label_focus, by = 'focus_no')
+
+# split focus data to di- & tri-syllabic data
+split_focus <- split(f0_focus_pre, f0_focus_pre$diortri)
+names(split_focus) <- paste("f0", names(split_focus), "focus_pre", sep = "_")
+list2env(split_focus, globalenv())
+
+# clean the di- & tri-syllabic focus data
+f0_di_focus_pre <- data_merge(f0_di_focus_pre)
+f0_tri_focus_pre <- data_merge(f0_tri_focus_pre)
+```
+
+
+Combine dataframes and final processing
+```{r data-cleaning-f0, message=FALSE, warning=FALSE}
+label_sandhi <- read.csv('raw_data/sandhi_label.csv', na.strings = '') 
+desired_order <- c('speaker', 'token', 'diortri', 'focus_condition', 'focus_no', 'citation_tone', 'sandhi_tone', 'sandhi_tone_var', 'syllable_no',  'citation_no', 'ind_no', 'sync_tone1', 'sync_tone2', 'sync_tone3', 'hist_tone1', 'hist_tone2', 'hist_tone3', 'syntax', 'time', 'f0', 'norm_f0')
+
+f0_all_pre <- plyr::rbind.fill(f0_mono_pre, f0_di_ct_pre, f0_tri_ct_pre, f0_di_focus_pre, f0_tri_focus_pre) %>%
+  # normalisation: z-scores of log f0
+  dplyr::group_by(speaker) %>%
+  dplyr::mutate(norm_f0 = scale(log(f0))) %>%
+  # mutate(f0ref = mean(f0, na.rm = T),
+   # norm_f0 = 12*log(f0/f0ref,2)) %>% 
+  ungroup() %>% 
+  # add variables
+  mutate(focus_condition = ifelse(is.na(focus_condition) == TRUE, 'ct', focus_condition),
+         ind_no = paste(speaker, citation_no, focus_condition, sep = '_'),
+         time = as.factor(time),
+         speaker = as.factor(speaker),
+         citation_no = as.factor(citation_no),
+         ind_no = as.factor(ind_no)) %>% 
+  # add auditory sandhi categories
+  select(!sandhi_tone) %>% 
+  left_join(label_sandhi[, c('ind_no', 'sandhi_tone', 'sandhi_tone_var', 'diortri')], 
+            by = c('diortri', 'ind_no')) %>% 
+  # re-order columns
+  select(desired_order) 
+
+
+library(plyr)
+detach(package:plyr)
+f0_all_pre <- f0_all_pre %>% dplyr::group_by(speaker) %>% 
+  dplyr::mutate(norm_f0 = scale(log(f0)))
+```
+
+
+
+## Saving
+```{r saving}
+save.image('XSTSF_production.RData')
+```
+

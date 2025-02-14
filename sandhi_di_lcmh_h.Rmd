@@ -1,0 +1,353 @@
+---
+title: "Analysis of disyllabic citation tone sandhi patterns in Xiangshan"
+author: Yibing Shi
+date: "Last updated: 2024-05-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(tidyverse)
+library(tidyr)
+library(kableExtra) 
+library(ggplot2)
+library(gridExtra) 
+library(ggthemes)
+library(viridis)
+library(plotly)
+library(ggrepel)
+library(kml)
+library(ggpubr)
+```
+
+
+# Data preparations  
+
+```{r data-construction, cache=FALSE}
+# paths
+current_dir <- getwd()
+plot_dir <- file.path(current_dir, "plots")
+
+# load data & functions
+load("XSTSF_production.RData")
+source('functions.R')
+```
+
+
+```{r, cache=FALSE}
+# data processing
+f0_all_ct <- f0_all_pre %>% filter(focus_condition == 'ct' ) %>% 
+  group_by(speaker) %>% 
+  mutate(norm_f0 = scale(log(f0))) %>% 
+  ungroup()
+
+f0_di_ct_lcmh <- f0_all_ct %>% 
+  filter(syntax %in% c('L', 'M') & diortri == 'di') %>% 
+  mutate(sandhi_tone = case_when(sandhi_tone == 'HLLM' ~ 'HMML',
+                                 sandhi_tone == 'LLHL' ~ 'LLRF', 
+                                 .default = sandhi_tone)) %>% 
+  filter(!ind_no %in% c('S2_1_ct', 'S2_11_ct', 'S2_27_ct', 'S3_5_ct', 'S3_19_ct', 'S5_27_ct')) %>% 
+  filter(is.na(sandhi_tone) == FALSE) 
+  
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh %>% filter( grepl('^H', sync_tone1))
+f0_di_ct_lc_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'L')
+f0_di_ct_mh_h <- f0_di_ct_lcmh_h %>% filter(syntax == 'M')
+f0_di_ct_lcmh_l <- f0_di_ct_lcmh %>% filter( grepl('^[LR]', sync_tone1)) 
+
+f0_di_ct_lcmh_h <- f0_di_ct_lcmh_h %>% 
+  mutate(sync_tone1 = ifelse(sync_tone1 == 'RF', 'LHL', sync_tone1),
+         sync_tone2 = ifelse(sync_tone2 == 'RF', 'LHL', sync_tone2)) %>% 
+  mutate(sync_tone1 = factor(sync_tone1, levels = c('HH', 'HL', 'LH', 'LHL')),
+         sync_tone2 = factor(sync_tone2, levels = c('HH', 'HL', 'LH', 'LHL'))) %>% 
+  mutate(hist_tone1 = factor(hist_tone1, levels = c('yinping', 'yinshang')),
+         hist_tone2 = factor(hist_tone2, levels = c('yinping', 'yinqu', 'yangping', 'yangqu'))) %>%
+  mutate(sandhi_tone = factor(sandhi_tone, levels = c('HMML', 'MMMH', 'MHHL', 'HHHH')))
+```
+
+# Example
+```{r}
+test <- f0_di_ct_lcmh_h %>% filter(speaker %in% c('S1', 'S4', 'S5', 'S6', 'S8'),
+                                   hist_tone1 == 'yinshang')
+
+```
+
+
+# Initial data inspection  
+
+```{r fig.height=8}
+# yinping-initial LC & MH
+f0_di_ct_lcmh_hp <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinping')
+ggplotly(draw_by(f0_di_ct_lcmh_hp, 'speaker'), tooltip = c('text', 'x'))
+
+# yinshang-initial LC & MH
+f0_di_ct_lcmh_hs <- f0_di_ct_lcmh_h %>% filter(hist_tone1 == 'yinshang')
+ggplotly(draw_by(f0_di_ct_lcmh_hs, 'speaker'), tooltip = c('text', 'x'))
+
+# yangping-initial LC & MH
+f0_di_ct_lcmh_lp <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangping')
+ggplotly(draw_by(f0_di_ct_lcmh_lp, 'speaker'), tooltip = c('text', 'x'))
+
+# yangshang-initial LC & MH
+f0_di_ct_lcmh_ls <- f0_di_ct_lcmh_l %>% filter(hist_tone1 == 'yangshang')
+ggplotly(draw_by(f0_di_ct_lcmh_ls, 'speaker'), tooltip = c('text', 'x'))
+```
+
+
+# Auditory categorisation  
+
+```{r out.width='100%', message=FALSE, warning=FALSE}
+unique(f0_di_ct_lcmh_h$sandhi_tone) # check the labels
+
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone)
+ggsave(filename = file.path(plot_dir, "h_human.jpeg"),width = 8, height = 4)
+```
+
+# k-means clustering 
+
+```{r message=FALSE, warning=FALSE}
+# data preparation
+f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h %>% 
+  select(-diortri, -syllable_no, -focus_no, -f0) %>% 
+  spread(time, norm_f0)
+
+# k-means clustering
+cluster_model <- k_means_clustering(f0_di_ct_lcmh_h_kmeans)
+kml(cluster_model, nbClusters = 2:10) 
+plotAllCriterion(cluster_model)
+kml::plot(cluster_model, 4, parTraj=parTRAJ(col="clusters"))
+kml::plot(cluster_model, 2, parTraj=parTRAJ(col="clusters"))
+
+# get cluster results
+f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h_kmeans %>% 
+  mutate(cluster4 = getClusters(cluster_model, 4),
+         cluster2 = getClusters(cluster_model, 2))
+
+f0_di_ct_lcmh_h_kmeans <- wide_to_long(f0_di_ct_lcmh_h_kmeans) %>% 
+  mutate(syllable_no = ifelse(time < 11, '1', '2')) %>% 
+  mutate(cluster2_reorder = case_when(cluster2 == 'A' ~ 'B',
+                                      cluster2 == 'B' ~ 'A'),
+         cluster4_reorder = case_when(cluster4 == 'A' ~ 'C',
+                                      cluster4 == 'B' ~ 'A',
+                                      cluster4 == 'C' ~ 'D',
+                                      cluster4 == 'D' ~ 'B'))
+```
+
+cluster visualisation
+```{r warning=FALSE, message=FALSE}
+p_kmeans2 <- p_cluster(f0_di_ct_lcmh_h_kmeans, cluster2_reorder);p_kmeans2
+p_kmeans4 <- p_cluster(f0_di_ct_lcmh_h_kmeans, cluster4_reorder);p_kmeans4
+```
+
+heatmap distribution
+```{r message=FALSE, warning=FALSE}
+heatmap_df <- heatmap_data(f0_di_ct_lcmh_h_kmeans, cluster2_reorder) 
+p_htmap2 <- compare_cluster(heatmap_df, 'cluster2_reorder'); p_htmap2
+
+heatmap_df <- heatmap_data(f0_di_ct_lcmh_h_kmeans, cluster4_reorder) 
+p_htmap4 <- compare_cluster(heatmap_df, 'cluster4_reorder'); p_htmap4
+```
+
+combinations of plots
+```{r message=FALSE, warning=FALSE}
+p_kmeans <- ggarrange(p_kmeans2 + rremove("ylab") + rremove("xlab"), 
+          p_kmeans4 + rremove("ylab") + rremove("xlab"), 
+          ncol = 1, nrow = 2,
+          common.legend = TRUE, legend = "top",
+          align = "hv",
+          labels = c('A', 'B'), font.label = list(size = 30)); p_kmeans
+
+p_kmeans <- annotate_figure(p_kmeans, 
+                            left = text_grob("Log-f0 (Z-Scores)", rot = 90, vjust = 1, size = 25),
+                            bottom = text_grob("Normalised time", size = 25)); p_kmeans
+
+p_htmaps <- ggarrange(p_htmap2 + rremove("ylab") + rremove("xlab"),
+                      p_htmap4 + rremove("ylab") + rremove("xlab"),
+                      labels = NULL,
+                      ncol = 1, nrow = 2,
+                      common.legend = TRUE, legend = "top",
+                      align = "hv"); p_htmaps
+
+ggarrange(p_kmeans2, p_htmap2, widths = c(1.4, 1))
+ggsave(filename = file.path(plot_dir, "h_kmeans2.jpeg"),width = 12, height = 4, dpi = 300)
+
+ggarrange(p_kmeans4, p_htmap4, widths = c(1.4, 1))
+ggsave(filename = file.path(plot_dir, "h_kmeans4.jpeg"),width = 12, height = 4, dpi = 300)
+```
+
+Examine mismathes
+```{r}
+f0_di_ct_lcmh_h_kmeans <- f0_di_ct_lcmh_h_kmeans %>% 
+  mutate(sub_cluster = paste0(sandhi_tone, '_', cluster4_reorder))
+cluster_hhhh <- f0_di_ct_lcmh_h_kmeans %>% filter(sandhi_tone == 'HHHH')
+p_cluster(cluster_hhhh, sub_cluster)
+ggsave(filename = file.path(plot_dir, "h_mismatch.jpeg"),width = 8, height = 4)
+
+cluster_hmml <- cluster_solution %>% filter(sandhi_tone == 'HMML')
+ggplotly(p_cluster(cluster_hmml, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_mhhl <- cluster_solution %>% filter(sandhi_tone == 'MHHL')
+ggplotly(p_cluster(cluster_mhhl, sub_cluster), tooltip = c('text', 'x'))
+
+cluster_mmmh <- cluster_solution %>% filter(sandhi_tone == 'MMMH')
+ggplotly(p_cluster(cluster_mmmh, sub_cluster), tooltip = c('text', 'x'))
+```
+
+
+# Distribution analysis  
+
+```{r, out.width='100%'}
+# monosyllabic citation tones
+distri_prop2(f0_di_ct_lcmh_h, hist_tone1, sync_tone1)+
+  xlab('initial syllable historical tone')+labs(fill = 'synchronic tone')
+ggsave(filename = file.path(plot_dir, "h_tone1.jpeg"),width = 7, height = 3.5, dpi = 300)
+
+distri_prop2(f0_di_ct_lcmh_hp, speaker, sync_tone1)
+distri_prop2(f0_di_ct_lcmh_hs, speaker, sync_tone1)
+
+distri_prop2(f0_di_ct_lcmh_h, hist_tone2, sync_tone2)+
+  xlab('second syllable historical tone')+labs(fill = 'synchronic tone')
+ggsave(filename = file.path(plot_dir, "h_tone2.jpeg"),width = 7, height = 3.5, dpi = 300)
+```
+
+
+```{r, out.width='100%'}
+# by initial tone
+distri_prop(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone, hist_tone1)+xlab('initial tone')
+ggsave(filename = file.path(plot_dir, "h_dist_tone1.jpeg"),width = 8, height = 4, dpi = 300)
+
+# test facet_grid
+df1 <- f0_di_ct_lcmh_h %>%
+    filter(time == 1) %>%
+    gather(factor, factor_level, sync_tone2, hist_tone2, factor_key = TRUE) %>% 
+    group_by(hist_tone1, factor, factor_level, sandhi_tone) %>%
+    count() %>%
+    ungroup() %>%
+    group_by(hist_tone1, factor_level) %>%
+    mutate(count = sum(n),
+           prop = n / count) %>% 
+    ungroup() %>% 
+    mutate(label = ifelse(n > 2, paste0(round(prop * 100), '%\n(', n, ')'), NA))
+ 
+
+ggplot(df1, aes(x = factor_level, y = prop, fill = sandhi_tone, label = label)) + 
+      geom_bar(position = "stack", stat = "identity") +
+      geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
+      scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", 'purple')) +
+      labs(fill = 'sandhi category') +
+      ylab('frequency proportion') +
+      facet_grid(hist_tone1 ~ factor, space = "free_x", scales = 'free', switch = 'y')+ 
+      scale_y_continuous(labels = scales::percent, position = 'right')+
+      theme_classic() +
+      theme(text = element_text(size = 20, family = 'Times New Roman'),
+            legend.position = 'top',
+            axis.text.x = element_text(angle = 45, hjust = 1))+
+      guides(fill = guide_legend(nrow = 2))
+
+ggsave(filename = file.path(plot_dir, "h_dist_tone2_all.jpeg"),width = 7, height = 8, dpi = 300)
+```
+
+```{r}
+df1 %>% filter(factor_level == 'HL')
+```
+
+
+```{r, out.width='100%'}
+# by second tone
+distri_prop2(f0_di_ct_lcmh_hp, sync_tone2, sandhi_tone)
+distri_prop2(f0_di_ct_lcmh_hs, sync_tone2, sandhi_tone)
+
+
+# yinping-initial
+p_tone2hph <- distri_prop2(f0_di_ct_lcmh_hp, hist_tone2, sandhi_tone)+
+  xlab('2nd.syllable.hist.tone')
+p_tone2hps <- distri_prop2(f0_di_ct_lcmh_hp, sync_tone2, sandhi_tone)+
+  xlab('2nd.syllable.sync.tone')
+p_tone2hp <- ggarrange(p_tone2hph+rremove("ylab"), 
+          p_tone2hps+rremove("ylab"),
+          common.legend = TRUE, legend = "right")
+p_tone2hp <- annotate_figure(p_tone2hp, 
+            left = text_grob("frequency proportion", 
+                             rot = 90, vjust = 1, size = 20,
+                             family = 'Times New Roman')); p_tone2hp
+
+ggsave(filename = file.path(plot_dir, "h_dist_tone2p.jpeg"),width = 11, height = 4, dpi = 300)
+
+# yinshang-initial
+p_tone2hsh <- distri_prop2(f0_di_ct_lcmh_hs, hist_tone2, sandhi_tone)+
+  scale_fill_manual(values = c("#CC6677", "#DDCC77", "#117733"))+
+  xlab('2nd.syllable.hist.tone'); p_tone2hsh
+p_tone2hss <- distri_prop2(f0_di_ct_lcmh_hs, sync_tone2, sandhi_tone)+
+  scale_fill_manual(values = c("#CC6677", "#DDCC77", "#117733"))+
+  xlab('2nd.syllable.sync.tone'); p_tone2hss
+p_tone2hs <- ggarrange(p_tone2hsh+rremove("ylab"), 
+          p_tone2hss+rremove("ylab"),
+          common.legend = TRUE, legend = "right")
+p_tone2hs <- annotate_figure(p_tone2hs, 
+            left = text_grob("frequency proportion", 
+                             rot = 90, vjust = 1, size = 20,
+                             family = 'Times New Roman')); p_tone2hs
+ggsave(filename = file.path(plot_dir, "h_dist_tone2s.jpeg"),width = 11, height = 4, dpi = 300)
+```
+
+
+```{r, out.width='100%'}
+# by speaker
+distri_prop(f0_di_ct_lcmh_h, speaker, sandhi_tone, hist_tone1)
+ggsave(filename = file.path(plot_dir, "h_dist_speaker.jpeg"),width = 10, height = 5, dpi = 300)
+```
+
+
+```{r, out.width='100%'}
+# first tone and syntax
+distri_prop(f0_di_ct_lcmh_h, syntax, sandhi_tone, hist_tone1)
+ggsave(filename = file.path(plot_dir, "h_dist_syntax.jpeg"),width = 7, height = 3.5, dpi = 300)
+distri_prop(f0_di_ct_lcmh_hp, sync_tone1, sandhi_tone, syntax)
+```
+
+
+
+# Gradience
+
+## Within-category variations
+```{r out.width='100%', message=FALSE, warning=FALSE}
+p_cluster(f0_di_ct_lcmh_h, sandhi_tone, 'speaker')
+p_cluster(f0_di_ct_lc_h, sandhi_tone, 'speaker')+ggtitle('Lexical compounds')
+p_cluster(f0_di_ct_mh_h, sandhi_tone, 'speaker')+ggtitle('Adjective-Noun phrases')
+```
+
+```{r, include=FALSE}
+# examine individual cases
+f0_di_ct_lc_h %>% filter(sandhi_tone == 'HMML' & sync_tone1 == 'HL') %>% 
+  select(token, ind_no) %>% 
+  distinct()
+```
+
+## Group-by different factors
+
+```{r, warning=FALSE, message=FALSE}
+# first tone: synchronic categories
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone1, sandhi_tone)+ggtitle('Lexical compounds')
+p_sub_cluster(f0_di_ct_mh_h, sync_tone1, sandhi_tone)+ggtitle('Adjective-Noun phrases')
+
+# second tone [synchronic] & syntax
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone2, sandhi_tone)
+p_sub_cluster(f0_di_ct_lc_h, sync_tone2, sandhi_tone)+ggtitle('Lexical compounds')
+p_sub_cluster(f0_di_ct_mh_h, sync_tone2, sandhi_tone)+ggtitle('Adjective-Noun phrases')
+
+p_sub_cluster(f0_di_ct_lcmh_h, syntax, sandhi_tone)
+```
+p_cluster() vs. p_sub_cluster()
+```{r, warning=FALSE, message=FALSE}
+p_sub_cluster(f0_di_ct_lcmh_h, sync_tone1, sandhi_tone)
+p_cluster(f0_di_ct_lcmh_h, sync_tone1, 'sandhi_tone')
+```
+
+
+
+
+
+
+
