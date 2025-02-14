@@ -3,7 +3,7 @@ draw_by <- function(dataframe, x, y){
   p <- dataframe %>% 
     ggplot(aes(x=as.numeric(time), y=norm_f0, group=interaction(syllable_no, ind_no), color=citation_no, linetype=citation_no, text = paste('speaker: ', speaker, '\ncitation tone: ', citation_tone, '\ncitation no:', citation_no, '\ntoken: ', token)))+
     geom_line()+
-    {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), nrow = 1, labeller = label_both)}
+    {if (missing(y)) {facet_wrap(as.formula(paste("~", x)), ncol = 2, labeller = label_both)}
       else {facet_grid(as.formula(paste(y, "~", x)), labeller = label_value)}}+
     scale_x_continuous(breaks = seq(1, 20, by = 5)) +
     theme_bw()+
@@ -59,7 +59,7 @@ p_cluster <- function(df, x, y = NULL){
     geom_line(alpha = 0.2) +
     scale_color_ptol() +
     stat_summary(fun = mean, geom = "line", lwd = 2.5, aes(group = interaction({{x}}, syllable_no)), lty = 1) +
-    ylim(-3, 3)+
+    ylim(-3.5, 3.5)+
     xlab("Normalised time") +
     ylab("z-scores of log-f0") + 
     labs(color = "cluster") +
@@ -67,6 +67,7 @@ p_cluster <- function(df, x, y = NULL){
     theme_minimal() +
     theme(legend.position = "right",
           text = element_text(family = 'Times New Roman', size = 20),
+          plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
           axis.title.x = element_text(margin = margin(t = 10)),
           axis.title.y = element_text(margin = margin(r = 20)))
   
@@ -97,6 +98,7 @@ p_cluster_cont <- function(df, x, y = NULL){
     labs(color = "sandhi pattern") +
     theme(legend.position = "right",
           text = element_text(family = 'Times New Roman', size = 20),
+          plot.title = element_text(hjust = 0.5, size = 20, face = "bold"),
           axis.title.x = element_text(margin = margin(t = 10)),
           axis.title.y = element_text(margin = margin(r = 20)))
   
@@ -168,7 +170,6 @@ distri_count <- function(df, x, y, z=NULL){
   p <- ggplot(df1, aes_string(x = quo_name(x), y = "n", fill = quo_name(y), label = "n")) + 
     geom_bar(position="stack", stat="identity")+
     geom_text(size = 4, position = position_stack(vjust = 0.5))+
-    scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733"))+
     theme_minimal()+
     ylab('count')+
     labs(fill = 'cluster')+
@@ -181,7 +182,7 @@ distri_count <- function(df, x, y, z=NULL){
   return(p)
 }
 
-distri_prop2 <- function(df, x, y) {
+distri_prop2 <- function(df, x, y, label_format = "paste0(round(prop * 100), '% (', n, ')')") {
   x <- rlang::enquo(x)
   y <- rlang::enquo(y)
   
@@ -196,20 +197,24 @@ distri_prop2 <- function(df, x, y) {
            prop = n / count) %>%
     ungroup()
   
-  p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = paste0(round(prop * 100), '%\n(', n, ')'))) + 
+  # Dynamically evaluate the label
+  label_expr <- rlang::parse_expr(label_format)
+  
+  p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = ifelse(n > 3, !!label_expr, paste0(round(prop * 100), '%')))) + 
     geom_bar(position = "stack", stat = "identity") +
     geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
     scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", 'purple')) +
     theme_minimal() +
     labs(fill = 'sandhi category') +
     ylab('frequency proportion') +
-    theme(text = element_text(size = 20, family = 'Times New Roman'))+ 
+    theme(text = element_text(size = 20, family = 'Times New Roman'),
+          plot.title = element_text(hjust = 0.5, size = 20, face = "bold"))+ 
     scale_y_continuous(labels = scales::percent)
   
   return(p)
-}
+} 
 
-distri_prop <- function(df, x, y, z = NULL) {
+distri_prop <- function(df, x, y, z = NULL, label_format = "paste0(round(prop * 100), '% (', n, ')')") {
   x <- rlang::enquo(x)
   y <- rlang::enquo(y)
   z <- rlang::enquo(z)
@@ -224,44 +229,9 @@ distri_prop <- function(df, x, y, z = NULL) {
              prop = n / count) %>%
       ungroup()
     
-    p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = paste0(round(prop * 100), '% (', n, ')'))) + 
-      geom_bar(position = "stack", stat = "identity") +
-      geom_text(size = 5, family = 'Times New Roman', position = position_stack(vjust = 0.5)) +
-      scale_fill_manual(values = c("#4477AA", "#CC6677", "#DDCC77", "#117733", 'purple')) +
-      theme_classic() +
-      labs(fill = 'sandhi category') +
-      ylab('frequency proportion') +
-      theme(text = element_text(size = 20, family = 'Times New Roman'),
-            axis.text.x = element_text(angle = 45, hjust = 1)) +
-      facet_wrap(if (!is.null(z)) as.formula(paste("~", quo_name(z))) else NULL, labeller = labeller(.cols = NULL))+ 
-      scale_y_continuous(labels = scales::percent)
+    # Dynamically evaluate the label
+    label_expr <- rlang::parse_expr(label_format)
     
-  return(p)
-}
-
-
-######### Gradience visualisation #########
-std <- function(x) sd(x)/sqrt(length(x))
-
-p_sub_cluster <- function(df, x, y){
-  df_mean <- df %>% 
-    group_by({{x}}, {{y}}, syllable_no, time) %>% 
-    summarise(meanf0 = mean(norm_f0),
-              se = std(norm_f0),
-              count = n()) %>% 
-    mutate(count_text = case_when(time == 20 ~ paste('n=', count, sep = ''),
-                                  .default = NA))
-  
-  p <- ggplot(df_mean, aes(x = time, y = meanf0, color = {{x}}, fill = {{x}}, group = interaction({{x}}, syllable_no)))+
-    geom_line(size = 1)+
-    geom_ribbon(aes(ymin = meanf0 - se, ymax = meanf0 + se), alpha = .2, linetype = 0)+
-    geom_text_repel(data = subset(df_mean, is.na(count_text) == FALSE), 
-                    aes(label = count_text), size = 5, family = 'Times New Roman')+
-    facet_wrap(vars({{y}}))+
-    theme_classic()+
-    ylim(-3, 3)
-  
-  return(p)
-}
-
-
+    p <- ggplot(df1, aes(x = !!x, y = prop, fill = !!y, label = !!label_expr)) + 
+      geom_bar(position = "stack", stat = "identity") +
+      geom_text(size = 5, family = 'Time
